@@ -9,7 +9,9 @@ __pycache__/
 .idea/
 
 # Data
-data/
+/data/
+
+!src/data/
 
 # Notebooks
 .ipynb_checkpoints/

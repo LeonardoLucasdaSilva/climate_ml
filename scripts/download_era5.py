@@ -22,6 +22,7 @@ all_years_2 = [
             ]
 
 all_years = [
+                "1986", "1987",
                 "1988", "1989", "1990",
                 "1991", "1992", "1993",
                 "1994", "1995", "1996",
@@ -42,12 +43,12 @@ DATASETS = []
 
 for year in all_years:
     requisition = {
-        "name": "downward_uv_radiation_at_the_surface_"+year,
+        "name": "surface_pressure_"+year,
         "dataset": "reanalysis-era5-single-levels",
-        "filename": "downward_uv_radiation_at_the_surface_"+year+".grib",
+        "filename": "surface_pressure_"+year+".grib",
         "request": {
             "product_type": ["reanalysis"],
-            "variable": ["downward_uv_radiation_at_the_surface"],
+            "variable": ["surface_pressure"],
             "year": year,
             "month": [
                 "01", "02", "03",
