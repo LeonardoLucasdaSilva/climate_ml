@@ -1,0 +1,19 @@
+import xarray as xr
+
+def concat_precipitation(raw_path, interim_path, timespan = '1D', overwrite = False):
+
+    # Timespan values
+    # 1D - daily
+    # 1M - month
+    # 1Y - year
+    # 6H - 6 hours
+    # XH - X hours
+
+    if interim_path.exists() and not overwrite:
+        print(f"File {interim_path} already exists")
+
+    nc_dataset = xr.open_dataset(raw_path, engine="netcdf4")
+
+    concat_dataset = nc_dataset.resample(valid_time=timespan).sum()
+
+    concat_dataset.to_netcdf(interim_path)
