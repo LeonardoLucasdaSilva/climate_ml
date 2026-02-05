@@ -7,13 +7,13 @@ variables in the state of Rio Grande do Sul, Brazil.
 
 You need to install the requirements through `pip install -r requirements.txt`
 <br>
-For some of the automatic downloads and preparation (timeseries for example) a file called `inmet_pos.csv` containing
+For some of the automatic downloads and preparation (timeseries for example) a file called `inmet_pos.csv`
 containing the positional data from the inmet stations is needed (row format: name_of_station, latitude, longitude)
 
 ## Folders and data
 
-By default you need to setup a ERA5 key to be able to download the data from the ERA5 API. With that done, you can run
-the project. Then, it will automatically setup the folders for the local data usage.
+By default, you need to set up a ERA5 key to be able to download the data from the ERA5 API. With that done, you can run
+the project. Then, it will automatically set up the folders for the local data usage.
 
 ### Raw
 
@@ -36,4 +36,12 @@ To download the datasets used here, run the scripts in `\scripts\` folder.
     (this is very slow averaging 16min for yearly data).
 - `\scripts\download_era5_timeseries` downloads the timeseries data for the grid points closest to each inmet station
     using experimental data from ERA5 reanalysis dataset.
+
+## Notebooks
+
+There are different types of notebooks in this project that are divided by folders. They behave as follows:
+
+- __Concepts__: are notebooks containing theory and conceptual examples, useful to understand the behavior of the code and
+data science in general
+- __Exploration__: are notebooks containing tests and real usage of the algorithms implemented in the project
 
