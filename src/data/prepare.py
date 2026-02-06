@@ -14,6 +14,9 @@ def concat_precipitation(raw_path, interim_path, timespan = '1D', overwrite = Fa
 
     nc_dataset = xr.open_dataset(raw_path, engine="netcdf4")
 
+    # Converts Total Precipitation (m) to Total Precipitation (mm)
+    nc_dataset["tp"].values = nc_dataset["tp"].values * 1000
+
     concat_dataset = nc_dataset.resample(valid_time=timespan).sum()
 
     concat_dataset.to_netcdf(interim_path)
