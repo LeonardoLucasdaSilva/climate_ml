@@ -1,7 +1,7 @@
-# src/data/convert.py
+# This file contains functions to convert files
+
 from pathlib import Path
 import xarray as xr
-
 
 def grib_to_netcdf(
     grib_path: Path,
