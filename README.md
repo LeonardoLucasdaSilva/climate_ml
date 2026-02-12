@@ -43,5 +43,6 @@ There are different types of notebooks in this project that are divided by folde
 
 - __Concepts__: are notebooks containing theory and conceptual examples, useful to understand the behavior of the code and
 data science in general
-- __Exploration__: are notebooks containing tests and real usage of the algorithms implemented in the project
+- __Hypotesis__: are notebooks containing tests and real usage of the algorithms implemented in the project
+  - The format of the files is given by `startyear_endyear_windowsize_horizon_preprocess_model`
 
