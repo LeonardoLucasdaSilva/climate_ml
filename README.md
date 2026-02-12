@@ -7,6 +7,9 @@ variables in the state of Rio Grande do Sul, Brazil.
 
 You need to install the requirements through `pip install -r requirements.txt`
 <br>
+If you have a graphics card that supports CUDA usage, we recommend you to install the right torch version according
+to your device after all the requirements are installed.
+<br>
 For some of the automatic downloads and preparation (timeseries for example) a file called `inmet_pos.csv`
 containing the positional data from the inmet stations is needed (row format: name_of_station, latitude, longitude)
 
