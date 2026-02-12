@@ -141,3 +141,25 @@ def plot_training_history_torch(history):
     ax.grid(True, alpha=0.3)
 
     return fig
+
+def save_table_as_image(df, save_path, dpi=300):
+    """
+    Saves a pandas DataFrame as an image using matplotlib.
+    """
+
+    fig, ax = plt.subplots(figsize=(df.shape[1] * 1.5, df.shape[0] * 0.5))
+    ax.axis("off")
+
+    table = ax.table(
+        cellText=df.values,
+        colLabels=df.columns,
+        loc="center"
+    )
+
+    table.auto_set_font_size(False)
+    table.set_fontsize(10)
+    table.auto_set_column_width(col=list(range(len(df.columns))))
+
+    plt.tight_layout()
+    fig.savefig(save_path, dpi=dpi, bbox_inches="tight")
+    plt.close(fig)
