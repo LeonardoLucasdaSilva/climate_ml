@@ -35,7 +35,7 @@ def prepare_data_seq_to_one(X, y, num_features, scaler_x = None, scaler_y = None
     Parameters
     ----------
     X : ndarray, shape (samples, timesteps, features)
-    y : ndarray, shape (samples,) or (samples, 1)
+    y : ndarray, shape (samples, ) or (samples, 1)
     num_features : int
     scaler_x, scaler_y : MinMaxScaler or None
 
