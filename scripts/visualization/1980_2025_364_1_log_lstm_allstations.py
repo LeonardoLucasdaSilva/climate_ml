@@ -10,7 +10,7 @@ from src.data import load_interim
 from src.data.preprocess import create_sliding_windows, prepare_data_seq_to_one
 from src.data.split import temporal_train_val_test_split
 from src.models.pytorch.train import train_timeseries_model
-from src.evaluation.plots import plot_real_vs_predicted_scatter, plot_training_history_torch
+from src.evaluation.plots import plot_real_vs_predicted_scatter, plot_training_history_torch, save_table_as_image
 from src.models.pytorch.architectures import LSTMSeqToVec
 from src.models.pytorch.predict import predict_timeseries_model
 from src.config.paths import PROJECT_ROOT, IMAGE_DATA_DIR
@@ -28,6 +28,8 @@ overwrite = True
 for index, row in df.iterrows():
 
     filename = row['cidade'] + ".png"
+
+    print("Downloading", filename)
 
     save_path_history = (
             IMAGE_DATA_DIR
@@ -49,6 +51,9 @@ for index, row in df.iterrows():
             / "scatter_test"
             / filename
     )
+
+    val_losses = []
+    cidades = []
 
     if save_path_history.exists() and save_path_val.exists() and save_path_test.exists() and not overwrite:
         print(f"All the graphs from {filename} file already exist")
@@ -89,7 +94,7 @@ for index, row in df.iterrows():
         num_features=1,
     )
 
-    history = train_timeseries_model(
+    history, val_loss = train_timeseries_model(
         model,
         X_train,
         y_train,
@@ -98,6 +103,9 @@ for index, row in df.iterrows():
         epochs=250,
         patience=10
     )
+
+    val_losses.append(val_loss)
+    cidades.append(row['cidade'])
 
     if save_path_history.exists() and not overwrite:
         print(f"File {save_path_history} already exists")
@@ -139,6 +147,21 @@ for index, row in df.iterrows():
     else:
         fig_scatter_test = plot_real_vs_predicted_scatter(y_true, y_pred)
         save_figure(fig_scatter_test, save_path_test)
+
+loss_path = (
+        IMAGE_DATA_DIR
+        / "1980_2025_364_1_log_lstm_allstations"
+        / 'validation_loss.png'
+)
+
+df = pd.DataFrame({
+    "Estação": cidades,
+    "Validation Loss": val_losses,
+})
+
+save_table_as_image(df,loss_path)
+
+
 
 
 
