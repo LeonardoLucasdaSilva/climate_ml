@@ -130,10 +130,4 @@ def train_timeseries_model(
 
     model.load_state_dict(best_model_state)
 
-        # print(
-        #     f"Epoch [{epoch+1}/{epochs}] "
-        #     f"Train Loss: {train_loss:.6f} "
-        #     f"Val Loss: {val_loss:.6f}"
-        # )
-
-    return history
+    return history, best_val_loss
