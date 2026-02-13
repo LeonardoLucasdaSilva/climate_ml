@@ -3,7 +3,7 @@ import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
 
 
-def train_timeseries_model(
+def train_regression_model(
     model,
     X_train,
     y_train,
@@ -17,12 +17,35 @@ def train_timeseries_model(
     device=None
 ):
     """
-    Trains a PyTorch LSTM sequence-to-vector model.
+    Trains a PyTorch model for supervised regression with early stopping.
+
+    Parameters
+    ----------
+    model : torch.nn.Module
+        PyTorch model to train.
+    X_train, y_train : array-like or torch.Tensor
+        Training data.
+    X_val, y_val : array-like or torch.Tensor
+        Validation data.
+    epochs : int, optional
+        Maximum number of training epochs.
+    batch_size : int, optional
+        Batch size for training.
+    patience : int, optional
+        Number of epochs with no validation improvement before stopping.
+    min_delta : float, optional
+        Minimum change in validation loss to qualify as improvement.
+    lr : float, optional
+        Learning rate.
+    device : torch.device, optional
+        Device to run training on (CPU or CUDA).
 
     Returns
     -------
     history : dict
-        Dictionary containing train and validation loss history.
+        Dictionary containing training and validation loss history.
+    best_val_loss : float
+        Best validation loss achieved during training.
     """
 
     if device is None:
@@ -124,9 +147,6 @@ def train_timeseries_model(
         if epochs_no_improve >= patience:
             print(f"\nEarly stopping triggered after {epoch + 1} epochs.")
             break
-
-        history["train_loss"].append(train_loss)
-        history["val_loss"].append(val_loss)
 
     model.load_state_dict(best_model_state)
 
