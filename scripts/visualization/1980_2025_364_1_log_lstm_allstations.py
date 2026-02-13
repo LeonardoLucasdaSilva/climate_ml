@@ -9,7 +9,8 @@ import pandas as pd
 from src.data import load_interim
 from src.data.preprocess import create_sliding_windows, prepare_data_seq_to_one
 from src.data.split import temporal_train_val_test_split
-from src.models.pytorch.train import train_timeseries_model
+from src.evaluation.metrics import mae, smape
+from src.models.pytorch.train import train_regression_model
 from src.evaluation.plots import plot_real_vs_predicted_scatter, plot_training_history_torch, save_table_as_image
 from src.models.pytorch.architectures import LSTMSeqToVec
 from src.models.pytorch.predict import predict_timeseries_model
@@ -24,6 +25,11 @@ df = pd.read_csv(PROJECT_ROOT/ 'data'/ 'inmet_pos.csv')
 df.columns = ['cidade', 'lat', 'lon']
 
 overwrite = True
+
+val_losses = []
+cidades = []
+maes = []
+smapes = []
 
 for index, row in df.iterrows():
 
@@ -51,9 +57,6 @@ for index, row in df.iterrows():
             / "scatter_test"
             / filename
     )
-
-    val_losses = []
-    cidades = []
 
     if save_path_history.exists() and save_path_val.exists() and save_path_test.exists() and not overwrite:
         print(f"All the graphs from {filename} file already exist")
@@ -94,17 +97,9 @@ for index, row in df.iterrows():
         num_features=1,
     )
 
-    history, val_loss = train_timeseries_model(
-        model,
-        X_train,
-        y_train,
-        X_val,
-        y_val,
-        epochs=250,
-        patience=10
-    )
+    history, val_loss = train_regression_model(model, X_train, y_train, X_val, y_val, epochs=250, patience=10)
 
-    val_losses.append(val_loss)
+    val_losses.append(round(val_loss, 5))
     cidades.append(row['cidade'])
 
     if save_path_history.exists() and not overwrite:
@@ -142,12 +137,18 @@ for index, row in df.iterrows():
     y_true = y_true.squeeze()
     y_pred = y_pred.squeeze()
 
+    maes.append(mae(y_true, y_pred))
+    smapes.append(smape(y_true, y_pred))
+
     if save_path_test.exists() and not overwrite:
         print(f"File {save_path_test} already exists")
     else:
         fig_scatter_test = plot_real_vs_predicted_scatter(y_true, y_pred)
         save_figure(fig_scatter_test, save_path_test)
 
+# ---------- TABLES -------------
+
+# Validation loss
 loss_path = (
         IMAGE_DATA_DIR
         / "1980_2025_364_1_log_lstm_allstations"
@@ -159,7 +160,36 @@ df = pd.DataFrame({
     "Validation Loss": val_losses,
 })
 
+# MAE
+mae_path = (
+        IMAGE_DATA_DIR
+        / "1980_2025_364_1_log_lstm_allstations"
+        / 'mae.png'
+)
+
+smape_path = (
+        IMAGE_DATA_DIR
+        / "1980_2025_364_1_log_lstm_allstations"
+        / 'smape.png'
+)
+
+# MAPE
+
 save_table_as_image(df,loss_path)
+
+df = pd.DataFrame({
+    "Estação": cidades,
+    "MAE": maes,
+})
+
+save_table_as_image(df,mae_path)
+
+df = pd.DataFrame({
+    "Estação": cidades,
+    "SMAPE": smapes,
+})
+
+save_table_as_image(df,smape_path)
 
 
 
