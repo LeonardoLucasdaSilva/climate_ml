@@ -1,0 +1,26 @@
+experiment:
+  model: lstm
+  frequency: daily
+  description: "LSTM daily precipitation forecasting"
+
+model:
+  hidden_size: 64
+  num_layers: 1
+
+data:
+  timesteps: 364
+  horizon: 1
+  stations_csv: inmet_pos.csv
+  initial_date: "1980-01-01"
+  end_date: "2020-12-31"
+  train_split: 0.7
+  val_split: 0.15
+
+training:
+  epochs: 100
+  batch_size: 32
+  learning_rate: 0.001
+  patience: 10
+
+preprocessing:
+  use_log: false
