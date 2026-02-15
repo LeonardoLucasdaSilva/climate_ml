@@ -163,3 +163,40 @@ def save_table_as_image(df, save_path, dpi=300):
     plt.tight_layout()
     fig.savefig(save_path, dpi=dpi, bbox_inches="tight")
     plt.close(fig)
+
+def plot_real_vs_predicted_timeseries(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    title: str = "Real vs Predicted Time Series",
+):
+    """
+    Plot true vs predicted time series.
+
+    Parameters
+    ----------
+    y_true : np.ndarray
+        Ground truth values (1D).
+    y_pred : np.ndarray
+        Predicted values (1D).
+    title : str
+        Plot title.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+    """
+
+    fig, ax = plt.subplots(figsize=(12, 5))
+
+    ax.plot(y_true, label="True", linewidth=2)
+    ax.plot(y_pred, label="Predicted", linewidth=2, linestyle="--")
+
+    ax.set_title(title)
+    ax.set_xlabel("Time Step")
+    ax.set_ylabel("Value")
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+
+    fig.tight_layout()
+
+    return fig
