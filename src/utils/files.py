@@ -32,3 +32,9 @@ def save_figure(fig, path, dpi=300, bbox_inches="tight", close=True):
         plt.close(fig)
 
     return path
+
+def ensure_dir(path: Path) -> None:
+    """
+    Create directory if it does not exist.
+    """
+    path.mkdir(parents=True, exist_ok=True)
