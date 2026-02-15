@@ -14,7 +14,8 @@ def train_regression_model(
     patience=10,
     min_delta=0.0,
     lr=1e-3,
-    device=None
+    device=None,
+    criterion = nn.MSELoss(),
 ):
     """
     Trains a PyTorch model for supervised regression with early stopping.
@@ -46,6 +47,8 @@ def train_regression_model(
         Dictionary containing training and validation loss history.
     best_val_loss : float
         Best validation loss achieved during training.
+    :param criterion:
+        Loss function used for training.
     """
 
     if device is None:
@@ -84,7 +87,6 @@ def train_regression_model(
         pin_memory=True
     )
 
-    criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     history = {
