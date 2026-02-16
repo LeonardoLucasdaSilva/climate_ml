@@ -2,16 +2,21 @@ experiment:
   model: lstm
   frequency: daily
   description: "LSTM daily precipitation forecasting"
+  #stations_mode: "all"
+  stations_mode: "single"
+  single_station_name: "ALEGRETE"
+  output_mode: "global_debug"
+  #output_mode: "standard"
 
 model:
   hidden_size: 64
   num_layers: 1
 
 data:
-  timesteps: 364
+  timesteps: 10
   horizon: 1
   stations_csv: inmet_pos.csv
-  initial_date: "1980-01-01"
+  initial_date: "2015-01-01"
   end_date: "2020-12-31"
   train_split: 0.7
   val_split: 0.15
@@ -24,3 +29,4 @@ training:
 
 preprocessing:
   use_log: false
+  use_scaler: false
