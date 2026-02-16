@@ -1,8 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-
-def plot_training_history(history):
+def plot_training_history(history, identifier: str = None):
     """
     Plot training and validation loss over epochs.
 
@@ -11,6 +10,8 @@ def plot_training_history(history):
     history : keras.callbacks.History
         History object returned by model.fit(). Must contain
         'loss' and 'val_loss' inside history.history.
+    identifier : str, optional
+        String to identify the plot, appended to the title.
 
     Returns
     -------
@@ -27,10 +28,13 @@ def plot_training_history(history):
     ax.legend()
     ax.grid(True)
 
+    if identifier:
+        ax.set_title(f"Training History - {identifier}")
+
     return fig
 
 
-def plot_real_vs_predicted_scatter(y_true, y_pred):
+def plot_real_vs_predicted_scatter(y_true, y_pred, identifier: str = None):
     """
     Plot a scatter comparison between true and predicted values.
 
@@ -40,6 +44,8 @@ def plot_real_vs_predicted_scatter(y_true, y_pred):
         Ground truth target values.
     y_pred : array-like
         Model predicted values.
+    identifier : str, optional
+        String to identify the plot, appended to the title.
 
     Returns
     -------
@@ -50,7 +56,6 @@ def plot_real_vs_predicted_scatter(y_true, y_pred):
     y_pred = np.asarray(y_pred).flatten()
 
     fig, ax = plt.subplots(figsize=(6, 6))
-
     ax.scatter(y_true, y_pred, alpha=0.5)
 
     min_val = min(y_true.min(), y_pred.min())
@@ -59,16 +64,17 @@ def plot_real_vs_predicted_scatter(y_true, y_pred):
 
     ax.set_xlabel("Real values")
     ax.set_ylabel("Predicted values")
-    ax.set_title("Real vs Predicted")
+    title = "Real vs Predicted"
+    if identifier:
+        title += f" - {identifier}"
+    ax.set_title(title)
     ax.grid(True)
     ax.set_aspect("equal")
 
     return fig
 
 
-def plot_real_vs_predicted_scatter_no_outliers(
-    y_true, y_pred, inf_limit=1, sup_limit=99
-):
+def plot_real_vs_predicted_scatter_no_outliers(y_true, y_pred, inf_limit=1, sup_limit=99, identifier: str = None):
     """
     Plot predicted vs true values while excluding extreme outliers.
 
@@ -82,6 +88,8 @@ def plot_real_vs_predicted_scatter_no_outliers(
         Lower percentile limit for filtering.
     sup_limit : float, default=99
         Upper percentile limit for filtering.
+    identifier : str, optional
+        String to identify the plot, appended to the title.
 
     Returns
     -------
@@ -95,19 +103,22 @@ def plot_real_vs_predicted_scatter_no_outliers(
     mask = (y_true_f >= low) & (y_true_f <= high)
 
     fig, ax = plt.subplots(figsize=(6, 6))
-
     ax.scatter(y_true_f[mask], y_pred_f[mask], s=5, alpha=0.5)
     ax.plot([low, high], [low, high], linestyle="--")
 
     ax.set_xlabel("y_true")
     ax.set_ylabel("y_pred")
-    ax.set_title(f"Prediction vs True ({inf_limit}–{sup_limit} percent)")
+    title = f"Prediction vs True ({inf_limit}–{sup_limit} percent)"
+    if identifier:
+        title += f" - {identifier}"
+    ax.set_title(title)
     ax.grid(True)
     ax.set_aspect("equal")
 
     return fig
 
-def plot_training_history_torch(history):
+
+def plot_training_history_torch(history, identifier: str = None):
     """
     Plots training and validation loss curves.
 
@@ -117,36 +128,49 @@ def plot_training_history_torch(history):
         Dictionary containing:
         - "train_loss": list of floats
         - "val_loss": list of floats
+    identifier : str, optional
+        String to identify the plot, appended to the title.
 
     Returns
     -------
     fig : matplotlib.figure.Figure
         Figure object for saving or further customization.
     """
-
     train_loss = history["train_loss"]
     val_loss = history["val_loss"]
-
     epochs = range(1, len(train_loss) + 1)
 
     fig, ax = plt.subplots(figsize=(8, 5))
-
     ax.plot(epochs, train_loss, label="Train Loss")
     ax.plot(epochs, val_loss, label="Validation Loss")
 
     ax.set_xlabel("Epoch")
     ax.set_ylabel("Loss (MSE)")
-    ax.set_title("Training and Validation Loss")
+    title = "Training and Validation Loss"
+    if identifier:
+        title += f" - {identifier}"
+    ax.set_title(title)
     ax.legend()
     ax.grid(True, alpha=0.3)
 
     return fig
 
-def save_table_as_image(df, save_path, dpi=300):
+
+def save_table_as_image(df, save_path, dpi=300, identifier: str = None):
     """
     Saves a pandas DataFrame as an image using matplotlib.
-    """
 
+    Parameters
+    ----------
+    df : pd.DataFrame
+        DataFrame to save
+    save_path : Path or str
+        Where to save the image
+    dpi : int
+        Image resolution
+    identifier : str, optional
+        String to add to the title of the table (optional)
+    """
     fig, ax = plt.subplots(figsize=(df.shape[1] * 1.5, df.shape[0] * 0.5))
     ax.axis("off")
 
@@ -160,30 +184,22 @@ def save_table_as_image(df, save_path, dpi=300):
     table.set_fontsize(10)
     table.auto_set_column_width(col=list(range(len(df.columns))))
 
+    if identifier:
+        ax.set_title(identifier)
+
     plt.tight_layout()
     fig.savefig(save_path, dpi=dpi, bbox_inches="tight")
     plt.close(fig)
+
 
 def plot_real_vs_predicted_timeseries(
     y_true: np.ndarray,
     y_pred: np.ndarray,
     title: str = "Real vs Predicted Time Series",
+    metadata: dict | None = None,
 ):
     """
-    Plot true vs predicted time series.
-
-    Parameters
-    ----------
-    y_true : np.ndarray
-        Ground truth values (1D).
-    y_pred : np.ndarray
-        Predicted values (1D).
-    title : str
-        Plot title.
-
-    Returns
-    -------
-    fig : matplotlib.figure.Figure
+    Plot true vs predicted time series with clean metadata block.
     """
 
     fig, ax = plt.subplots(figsize=(12, 5))
@@ -191,12 +207,81 @@ def plot_real_vs_predicted_timeseries(
     ax.plot(y_true, label="True", linewidth=2)
     ax.plot(y_pred, label="Predicted", linewidth=2, linestyle="--")
 
-    ax.set_title(title)
+    # Main clean title
+    ax.set_title(title, fontsize=14, weight="bold")
+
     ax.set_xlabel("Time Step")
     ax.set_ylabel("Value")
     ax.legend()
     ax.grid(True, alpha=0.3)
 
-    fig.tight_layout()
+    # Add metadata block below title (clean and readable)
+    if metadata:
+        meta_text = " | ".join(f"{k}: {v}" for k, v in metadata.items())
+        fig.text(
+            0.5, 0.93, meta_text,
+            ha="center",
+            fontsize=9,
+            alpha=0.8
+        )
+
+    fig.tight_layout(rect=[0, 0, 1, 0.92])  # leave space for metadata
+
+    return fig
+
+def plot_real_and_predicted_separate(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    title: str = "Real vs Predicted Time Series",
+    metadata: dict | None = None,
+):
+    """
+    Plot true and predicted time series in two stacked subplots
+    with shared x-axis and clean metadata block.
+    """
+
+    fig, axes = plt.subplots(
+        2, 1,
+        figsize=(12, 7),
+        sharex=True
+    )
+
+    # -------------------------
+    # Top plot: True values
+    # -------------------------
+    axes[0].plot(y_true, linewidth=2)
+    axes[0].set_title("True")
+    axes[0].set_ylabel("Value")
+    axes[0].grid(True, alpha=0.3)
+
+    # -------------------------
+    # Bottom plot: Predicted values
+    # -------------------------
+    axes[1].plot(y_pred, linewidth=2)
+    axes[1].set_title("Predicted")
+    axes[1].set_xlabel("Time Step")
+    axes[1].set_ylabel("Value")
+    axes[1].grid(True, alpha=0.3)
+
+    # -------------------------
+    # Main title
+    # -------------------------
+    fig.suptitle(title, fontsize=14, weight="bold")
+
+    # -------------------------
+    # Metadata block
+    # -------------------------
+    if metadata:
+        meta_text = " | ".join(f"{k}: {v}" for k, v in metadata.items())
+        fig.text(
+            0.5,
+            0.94,
+            meta_text,
+            ha="center",
+            fontsize=9,
+            alpha=0.8
+        )
+
+    fig.tight_layout(rect=[0, 0, 1, 0.92])
 
     return fig
