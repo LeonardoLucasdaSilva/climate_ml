@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 def save_figure(fig, path, dpi=300, bbox_inches="tight", close=True):
@@ -38,3 +39,14 @@ def ensure_dir(path: Path) -> None:
     Create directory if it does not exist.
     """
     path.mkdir(parents=True, exist_ok=True)
+
+def save_json(data: dict, path: Path):
+    ensure_dir(path.parent)
+    with open(path, "w") as f:
+        json.dump(data, f, indent=4)
+
+
+def save_plot(fig, path: Path):
+    ensure_dir(path.parent)
+    fig.savefig(path, dpi=300, bbox_inches="tight")
+
