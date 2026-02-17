@@ -20,6 +20,13 @@ data:
   end_date: "2020-12-31"
   train_split: 0.7
   val_split: 0.15
+  variables:
+    #- 2m_dewpoint_temperature
+    #- surface_pressure
+    #- surface_solar_radiation_downwards
+    #- 2m_temperature
+    - total_precipitation
+  target: total_precipitation
 
 training:
   epochs: 100
@@ -30,3 +37,4 @@ training:
 preprocessing:
   use_log: false
   use_scaler: false
+
