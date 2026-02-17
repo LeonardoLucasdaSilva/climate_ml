@@ -2,6 +2,7 @@ from pathlib import Path
 import pandas as pd
 import time
 
+from src.experiments.artifacts import save_station_artifacts
 from src.experiments.utils import resolve_output_directory, filter_stations
 from src.utils.files import save_json
 from src.config.paths import DATA_DIR
@@ -58,11 +59,33 @@ def run_single_station(cidade, model_builder, config, run_dir, base_dir):
         model, X_test, y_test, scaler_y, use_log
     )
 
-    metrics = {
-        "val_loss": float(val_loss),
-        "mae": float(mae(y_true_test, y_pred_test)),
-        "smape": float(smape(y_true_test, y_pred_test)),
+    run_name = config["experiment"].get("run_name", "")
+
+    metadata = {
+        "Timesteps": config["data"]["timesteps"],
+        "Loss": config["training"]["loss"],
+        "Scaler": config["preprocessing"]["use_scaler"],
+        "Range": (
+            config["data"]["initial_date"]
+            + "-"
+            + config["data"]["end_date"]
+        ),
     }
+
+    metrics = save_station_artifacts(
+        cidade=cidade,
+        run_name=run_name,
+        base_dir=base_dir,
+        history=history,
+        model=model,
+        val_loss=val_loss,
+        y_true_val=y_true_val,
+        y_pred_val=y_pred_val,
+        y_true_test=y_true_test,
+        y_pred_test=y_pred_test,
+        metadata=metadata,
+        config=config,
+    )
 
     return metrics
 
