@@ -1,6 +1,9 @@
 import json
 from pathlib import Path
 
+from matplotlib import pyplot as plt
+
+
 def save_figure(fig, path, dpi=300, bbox_inches="tight", close=True):
     """
     Save a matplotlib figure safely.
@@ -49,4 +52,5 @@ def save_json(data: dict, path: Path):
 def save_plot(fig, path: Path):
     ensure_dir(path.parent)
     fig.savefig(path, dpi=300, bbox_inches="tight")
+    plt.close(fig)
 
