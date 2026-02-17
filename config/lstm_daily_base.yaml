@@ -9,8 +9,9 @@ experiment:
   #output_mode: "standard"
 
 model:
-  hidden_size: 64
+  hidden_size: 16
   num_layers: 1
+  dropout: 0.2
 
 data:
   timesteps: 10
@@ -18,8 +19,8 @@ data:
   stations_csv: inmet_pos.csv
   initial_date: "2015-01-01"
   end_date: "2020-12-31"
-  train_split: 0.7
-  val_split: 0.15
+  train_split: 0.6
+  val_split: 0.1
   variables:
     #- 2m_dewpoint_temperature
     #- surface_pressure
