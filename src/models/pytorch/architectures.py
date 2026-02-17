@@ -3,38 +3,46 @@ import torch.nn as nn
 
 
 class LSTMSeqToVec(nn.Module):
-    def __init__(self, horizon, timesteps, num_features):
+    def __init__(
+        self,
+        horizon: int,
+        timesteps: int,
+        num_features: int,
+        hidden_size: int,
+        num_layers: int,
+        dropout: float,
+    ):
         super().__init__()
 
-        self.lstm1 = nn.LSTM(
+        self.hidden_size = hidden_size
+        self.num_layers = num_layers
+
+        # LSTM
+        self.lstm = nn.LSTM(
             input_size=num_features,
-            hidden_size=64,
-            batch_first=True
+            hidden_size=hidden_size,
+            num_layers=num_layers,
+            batch_first=True,
+            dropout=dropout if num_layers > 1 else 0.0,
         )
 
-        self.lstm2 = nn.LSTM(
-            input_size=64,
-            hidden_size=48,
-            batch_first=True
-        )
+        # External dropout (recommended even if num_layers=1)
+        self.dropout = nn.Dropout(dropout)
 
-        self.lstm3 = nn.LSTM(
-            input_size=48,
-            hidden_size=32,
-            batch_first=True
-        )
-
-        self.fc = nn.Linear(32, horizon)
+        # Fully connected output
+        self.fc = nn.Linear(hidden_size, horizon)
 
     def forward(self, x):
-        # x: (batch, timesteps, num_features)
+        """
+        x shape: (batch_size, timesteps, num_features)
+        """
 
-        out, _ = self.lstm1(x)
-        out, _ = self.lstm2(out)
-        out, _ = self.lstm3(out)
+        out, _ = self.lstm(x)
 
-        # Take last time step
-        out = out[:, -1, :]  # (batch, 32)
+        # Take last timestep output
+        out = out[:, -1, :]  # (batch_size, hidden_size)
+
+        out = self.dropout(out)
 
         out = self.fc(out)
 
