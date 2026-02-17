@@ -285,3 +285,88 @@ def plot_real_and_predicted_separate(
     fig.tight_layout(rect=[0, 0, 1, 0.92])
 
     return fig
+
+def plot_error_histogram(
+    y_true,
+    y_pred,
+    title: str = "Error Distribution",
+    bins: int = 50,
+):
+    """
+    Plots histogram of prediction errors (y_true - y_pred).
+
+    Parameters
+    ----------
+    y_true : array-like
+    y_pred : array-like
+    title : str
+        Title of the plot.
+    bins : int
+        Number of histogram bins.
+
+    Returns
+    -------
+    fig : matplotlib.figure.Figure
+    """
+
+    y_true = np.array(y_true).flatten()
+    y_pred = np.array(y_pred).flatten()
+
+    errors = y_true - y_pred
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    ax.hist(errors, bins=bins, edgecolor="black", alpha=0.7)
+    ax.axvline(0, linestyle="--")
+
+    ax.set_title(title)
+    ax.set_xlabel("Error (True - Predicted)")
+    ax.set_ylabel("Frequency")
+
+    ax.grid(alpha=0.3)
+
+    return fig
+
+import numpy as np
+import matplotlib.pyplot as plt
+
+
+def plot_absolute_error_timeseries(
+    y_true,
+    y_pred,
+    title: str = "Absolute Error Over Time",
+    metadata: dict | None = None,
+):
+    """
+    Plots absolute error |y_true - y_pred| as a time series.
+
+    Parameters
+    ----------
+    y_true : array-like
+    y_pred : array-like
+    title : str
+    metadata : dict (optional)
+        Can contain date index under key 'dates'
+    """
+
+    y_true = np.array(y_true).flatten()
+    y_pred = np.array(y_pred).flatten()
+
+    abs_error = np.abs(y_true - y_pred)
+
+    fig, ax = plt.subplots(figsize=(12, 5))
+
+    if metadata and "dates" in metadata:
+        x_axis = metadata["dates"]
+    else:
+        x_axis = np.arange(len(abs_error))
+
+    ax.plot(x_axis, abs_error)
+
+    ax.set_title(title)
+    ax.set_ylabel("Absolute Error")
+    ax.set_xlabel("Time")
+
+    ax.grid(alpha=0.3)
+
+    return fig
