@@ -1,4 +1,4 @@
-from src.models.pytorch.architectures import LSTMSeqToVec
+from src.models.architectures import LSTMSeqToVec
 
 def lstm_builder(config, num_features):
     return LSTMSeqToVec(
