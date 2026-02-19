@@ -4,13 +4,13 @@ import time
 
 from src.experiments.artifacts import save_station_artifacts
 from src.experiments.utils import resolve_output_directory, filter_stations
+from src.utils.dates import days_after, days_between
 from src.utils.files import save_json
 from src.config.paths import DATA_DIR
 from src.data.pipeline import prepare_station_data
-from src.models.pytorch.factory import build_model_and_loss
-from src.models.pytorch.train import train_regression_model
-from src.models.pytorch.evaluator import evaluate_model
-from src.evaluation.metrics import mae, smape
+from src.models.factory import build_model_and_loss
+from src.models.train import train_regression_model
+from src.models.evaluator import evaluate_model
 
 
 def run_single_station(cidade, model_builder, config, run_dir, base_dir):
@@ -19,7 +19,8 @@ def run_single_station(cidade, model_builder, config, run_dir, base_dir):
     # DATA
     # -----------------------
     (X_train, X_val, X_test,
-     y_train, y_val, y_test), scaler_y, use_log = (
+     y_train, y_val, y_test,
+     train_end, val_end), scaler_y, use_log = (
         prepare_station_data(cidade, config)
     )
 
@@ -61,15 +62,39 @@ def run_single_station(cidade, model_builder, config, run_dir, base_dir):
 
     run_name = config["experiment"].get("run_name", "")
 
+    loss_name = config["training"]["loss"]
+
+    if loss_name.startswith("quantile"):
+        q = loss_name.split("_")[1]
+        loss_name = f"Quantile ({q})"
+
+    initial_date = config["data"]["initial_date"]
+    end_date = config["data"]["end_date"]
+
+    # --- Compute boundary dates ---
+    train_end_date = days_after(initial_date, train_end)
+    val_start_date = days_after(train_end_date, 1)
+
+    val_end_date = days_after(initial_date, val_end)
+    test_start_date = days_after(val_end_date, 1)
+
+    # --- Compute durations ---
+    train_days = train_end
+    val_days = val_end - train_end
+    test_days = days_between(test_start_date, end_date)-1
+
+    # --- Metadata ---
     metadata = {
         "Timesteps": config["data"]["timesteps"],
-        "Loss": config["training"]["loss"],
-        "Scaler": config["preprocessing"]["use_scaler"],
-        "Range": (
-            config["data"]["initial_date"]
-            + "-"
-            + config["data"]["end_date"]
-        ),
+        "Horizon": config["data"]["horizon"],
+
+        "Train": f"{initial_date} → {train_end_date} ({train_days} samples)",
+        "Validation": f"{val_start_date} → {val_end_date} ({val_days} samples)",
+        "Test": f"{test_start_date} → {end_date} ({test_days} samples)",
+
+        "Loss": loss_name,
+        "Scaler": "Yes" if config["preprocessing"]["use_scaler"] else "No",
+        "Station:": cidade
     }
 
     metrics = save_station_artifacts(

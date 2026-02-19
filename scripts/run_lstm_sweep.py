@@ -21,11 +21,11 @@ ensure_dir(runs_root)
 # ==================================
 
 timesteps_list = [3, 5, 7, 10, 20, 30]
-loss_list = ["weighted_mse", "huber", "mse", "mae"]
+loss_list = ["quantile_0.9","quantile_0.8", "weighted_mse", "huber", "mse", "mae"]
 use_scaler_list = [True, False]
 horizon_list = [1]
 
-days_before_list = [30, 60, 90, 180, 365, 720, 1440]
+days_before_list = [365, 720, 1440, 2800]
 dataset_end = "2020-12-31"
 
 

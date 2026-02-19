@@ -1,5 +1,36 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
+import matplotlib.dates as mdates
+
+
+def _build_dates_from_metadata(metadata: dict, title: str, length: int):
+    """
+    Extract correct date range (Validation or Test) from metadata
+    and build a DatetimeIndex matching the series length.
+    """
+
+    if metadata is None:
+        return None
+
+    # Decide which range to use based on title
+    if "Validation" in title and "Validation" in metadata:
+        range_str = metadata["Validation"]
+    elif "Test" in title and "Test" in metadata:
+        range_str = metadata["Test"]
+    else:
+        return None  # fallback to index
+
+    # Extract start date (before arrow)
+    # Example format:
+    # "2020-01-01 → 2020-12-31 (365 samples)"
+    start_date = range_str.split("→")[0].strip()
+
+    return pd.date_range(
+        start=pd.to_datetime(start_date),
+        periods=length,
+        freq="D",
+    )
 
 def plot_training_history(history, identifier: str = None):
     """
@@ -199,33 +230,43 @@ def plot_real_vs_predicted_timeseries(
     metadata: dict | None = None,
 ):
     """
-    Plot true vs predicted time series with clean metadata block.
+    Plot true vs predicted time series using metadata date range as x-axis.
     """
+
+    dates = _build_dates_from_metadata(metadata, title, len(y_true))
 
     fig, ax = plt.subplots(figsize=(12, 5))
 
-    ax.plot(y_true, label="True", linewidth=2)
-    ax.plot(y_pred, label="Predicted", linewidth=2, linestyle="--")
+    if dates is not None:
+        ax.plot(dates, y_true, label="True", linewidth=2)
+        ax.plot(dates, y_pred, label="Predicted", linewidth=2, linestyle="--")
+        ax.set_xlabel("Date")
 
-    # Main clean title
+        ax.xaxis.set_major_locator(mdates.AutoDateLocator())
+        ax.xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m"))
+        fig.autofmt_xdate()
+
+    else:
+        ax.plot(y_true, label="True", linewidth=2)
+        ax.plot(y_pred, label="Predicted", linewidth=2, linestyle="--")
+        ax.set_xlabel("Time Step")
+
     ax.set_title(title, fontsize=14, weight="bold")
-
-    ax.set_xlabel("Time Step")
     ax.set_ylabel("Value")
     ax.legend()
     ax.grid(True, alpha=0.3)
 
-    # Add metadata block below title (clean and readable)
     if metadata:
         meta_text = " | ".join(f"{k}: {v}" for k, v in metadata.items())
         fig.text(
-            0.5, 0.93, meta_text,
+            0.5, 0.93,
+            meta_text,
             ha="center",
             fontsize=9,
             alpha=0.8
         )
 
-    fig.tight_layout(rect=[0, 0, 1, 0.92])  # leave space for metadata
+    fig.tight_layout(rect=[0, 0, 1, 0.92])
 
     return fig
 
@@ -237,8 +278,10 @@ def plot_real_and_predicted_separate(
 ):
     """
     Plot true and predicted time series in two stacked subplots
-    with shared x-axis and clean metadata block.
+    using metadata date range as x-axis.
     """
+
+    dates = _build_dates_from_metadata(metadata, title, len(y_true))
 
     fig, axes = plt.subplots(
         2, 1,
@@ -246,31 +289,30 @@ def plot_real_and_predicted_separate(
         sharex=True
     )
 
-    # -------------------------
-    # Top plot: True values
-    # -------------------------
-    axes[0].plot(y_true, linewidth=2)
+    # True
+    if dates is not None:
+        axes[0].plot(dates, y_true, linewidth=2)
+        axes[1].plot(dates, y_pred, linewidth=2)
+
+        axes[1].set_xlabel("Date")
+        axes[1].xaxis.set_major_locator(mdates.AutoDateLocator())
+        axes[1].xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m"))
+        fig.autofmt_xdate()
+    else:
+        axes[0].plot(y_true, linewidth=2)
+        axes[1].plot(y_pred, linewidth=2)
+        axes[1].set_xlabel("Time Step")
+
     axes[0].set_title("True")
     axes[0].set_ylabel("Value")
     axes[0].grid(True, alpha=0.3)
 
-    # -------------------------
-    # Bottom plot: Predicted values
-    # -------------------------
-    axes[1].plot(y_pred, linewidth=2)
     axes[1].set_title("Predicted")
-    axes[1].set_xlabel("Time Step")
     axes[1].set_ylabel("Value")
     axes[1].grid(True, alpha=0.3)
 
-    # -------------------------
-    # Main title
-    # -------------------------
     fig.suptitle(title, fontsize=14, weight="bold")
 
-    # -------------------------
-    # Metadata block
-    # -------------------------
     if metadata:
         meta_text = " | ".join(f"{k}: {v}" for k, v in metadata.items())
         fig.text(

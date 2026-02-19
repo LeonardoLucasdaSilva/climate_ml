@@ -43,7 +43,7 @@ def temporal_train_val_test_split(
     X_test = X[val_end:]
     y_test = y[val_end:]
 
-    return X_train, X_val, X_test, y_train, y_val, y_test
+    return X_train, X_val, X_test, y_train, y_val, y_test, train_end, val_end
 
 def random_train_val_test_split(
     X,
