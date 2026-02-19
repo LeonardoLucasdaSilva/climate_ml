@@ -203,7 +203,7 @@ def _save_prediction_plots(
     error_dir = split_dir / "abs_error_timeseries"
     error_dir.mkdir(parents=True, exist_ok=True)
 
-    fig_error = plot_error_histogram(
+    fig_error = plot_absolute_error_timeseries(
         y_true,
         y_pred,
         title=f"{split_name.capitalize()} - Absolute Error Timeseries",
