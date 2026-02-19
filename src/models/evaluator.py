@@ -1,5 +1,5 @@
 import numpy as np
-from src.models.pytorch.predict import predict_timeseries_model
+from src.models.predict import predict_timeseries_model
 
 
 def evaluate_model(

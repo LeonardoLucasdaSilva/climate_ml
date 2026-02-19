@@ -1,5 +1,6 @@
 import torch
-from src.models.pytorch.losses import weighted_mse_loss
+from src.models.losses import weighted_mse_loss
+from src.models.losses import QuantileLoss
 
 
 def build_model_and_loss(model_builder, config, num_features):
@@ -22,6 +23,11 @@ def build_model_and_loss(model_builder, config, num_features):
         criterion = lambda yp, yt: weighted_mse_loss(
             yp, yt, extreme_weight=5.0, is_log=use_log
         )
+
+    elif loss_name.startswith("quantile"):
+        # example: "quantile_0.9"
+        q = float(loss_name.split("_")[1])
+        criterion = QuantileLoss(q=q)
 
     else:
         raise ValueError(f"Unsupported loss: {loss_name}")

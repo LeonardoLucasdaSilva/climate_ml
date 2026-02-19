@@ -10,10 +10,10 @@ from src.data import load_interim
 from src.data.preprocess import create_sliding_windows, prepare_data_seq_to_one
 from src.data.split import temporal_train_val_test_split
 from src.evaluation.metrics import mae, smape
-from src.models.pytorch.train import train_regression_model
+from src.models.train import train_regression_model
 from src.evaluation.plots import plot_real_vs_predicted_scatter, plot_training_history_torch, save_table_as_image
-from src.models.pytorch.architectures import LSTMSeqToVec
-from src.models.pytorch.predict import predict_timeseries_model
+from src.models.architectures import LSTMSeqToVec
+from src.models.predict import predict_timeseries_model
 from src.config.paths import PROJECT_ROOT, IMAGE_DATA_DIR
 from src.utils.files import save_figure
 

@@ -1,4 +1,5 @@
 import torch
+import torch.nn as nn
 
 def weighted_mse_loss(
     y_pred,
@@ -42,3 +43,16 @@ def weighted_mse_loss(
         loss = torch.mean(weights * (y_pred - y_true) ** 2)
 
     return loss
+
+class QuantileLoss(nn.Module):
+    def __init__(self, q):
+        super().__init__()
+        self.q = q
+
+    def forward(self, y_pred, y_true):
+        errors = y_true - y_pred
+        loss = torch.maximum(
+            self.q * errors,
+            (self.q - 1) * errors
+        )
+        return torch.mean(loss)

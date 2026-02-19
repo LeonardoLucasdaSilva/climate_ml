@@ -1,43 +1,52 @@
-def predict_next_window(
+import torch
+from torch.utils.data import DataLoader, TensorDataset
+
+
+def predict_timeseries_model(
     model,
-    window,
-    scaler,
-    window_size,
-    num_features
+    X,
+    batch_size=256,
+    device=None
 ):
-
     """
-    Predict the next time step value using a trained time-series model
-    and a single sliding window.
-
-    This function performs inference. It takes the most recent window
-    of time-series data, reshapes it into the format expected by the model
-    (batch_size=1), runs the model prediction, and converts the output
-    back to the original scale.
+    Generates predictions for a PyTorch time-series model.
 
     Parameters
     ----------
-    model : tf.keras.Model
-        A trained time-series model (e.g., LSTM).
-    window : np.ndarray
-        Sliding window containing the most recent time steps.
-        Shape: (window_size, num_features).
-    scaler : sklearn scaler
-        Scaler fitted on the training target, used to inverse-transform
-        the prediction.
-    window_size : int
-        Number of time steps in the input window.
-    num_features : int
-        Number of features per time step.
+    model : torch.nn.Module
+    X : numpy array or torch tensor
+    batch_size : int
+    device : torch.device
 
     Returns
     -------
-    float
-        Predicted value for the next time step in original units.
+    numpy.ndarray
+        Predictions with shape (n_samples, horizon)
     """
 
-    x_predict = window.reshape(1, window_size, num_features)
-    predict                      = model.predict(x_predict)
-    predict                      = scaler.inverse_transform(predict[0,0].reshape(-1, 1))
+    if device is None:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    return predict[0,0]
+    model = model.to(device)
+    model.eval()
+
+    # Convert to tensor if needed
+    if not torch.is_tensor(X):
+        X = torch.tensor(X, dtype=torch.float32)
+
+    dataset = TensorDataset(X)
+    loader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+
+    predictions = []
+
+    with torch.no_grad():
+        for (X_batch,) in loader:
+            X_batch = X_batch.to(device)
+
+            outputs = model(X_batch)
+
+            predictions.append(outputs.cpu())
+
+    predictions = torch.cat(predictions, dim=0)
+
+    return predictions.numpy()
