@@ -5,7 +5,6 @@ from src.config.paths import INTERIM_DATA_DIR
 
 INMET_DIR = INTERIM_DATA_DIR / "inmet"
 
-# Header replacements
 replacements = {
     "ESTAÇÃO": "ESTACAO",
     "ESTAÇ?O": "ESTACAO",
@@ -59,46 +58,39 @@ replacements = {
     "XEREM": "DUQUE DE CAXIAS - XEREM",
     "CAMPOS": "CAMPOS DOS GOYTACAZES",
     "TERESOPOLIS": "TERESOPOLIS-PARQUE NACIONAL",
-
+    "SOROCABA": "SOROCABA (ANTIGA IPERO)",
+    "IPERO": "SOROCABA (ANTIGA IPERO)",
 }
+
+# Single regex for all replacements
+replacement_pattern = re.compile(
+    "|".join(re.escape(k) for k in sorted(replacements, key=len, reverse=True))
+)
 
 # Date patterns
 date_yyyy_mm_dd_slash = re.compile(r"\b(\d{4})/(\d{2})/(\d{2})\b")
 date_dd_mm_yyyy = re.compile(r"\b(\d{2})/(\d{2})/(\d{4})\b")
 date_dd_mm_yy = re.compile(r"\b(\d{2})/(\d{2})/(\d{2})\b")
 
-# Detect first data line
+# Time pattern
+hour_utc_pattern = re.compile(r"\b([01]\d|2[0-3])([0-5]\d)\s*UTC\b")
+
+# Detect start of data
 data_line_pattern = re.compile(r"\s*\d{4}[-/]\d{2}[-/]\d{2};")
 
 
-def normalize_header_names(line: str):
-
-    line = line.rstrip("\n")
-
-    # Metadata lines like KEY:;VALUE
-    if ":;" in line:
-        key, value = line.split(":;", 1)
-
-        key = replacements.get(key.strip(), key.strip())
-        value = replacements.get(value.strip(), value.strip())
-
-        return f"{key}:;{value}\n"
-
-    # Column header line
-    for old, new in replacements.items():
-        line = line.replace(old, new)
-
-    return line + "\n"
+def replace_all(text: str):
+    return replacement_pattern.sub(lambda m: replacements[m.group(0)], text)
 
 
 def convert_dates(text: str):
-    # YYYY/MM/DD -> YYYY-MM-DD
-    text = date_yyyy_mm_dd_slash.sub(r"\1-\2-\3", text)
 
-    # DD/MM/YYYY -> YYYY-MM-DD
+    if "/" not in text:
+        return text
+
+    text = date_yyyy_mm_dd_slash.sub(r"\1-\2-\3", text)
     text = date_dd_mm_yyyy.sub(lambda m: f"{m.group(3)}-{m.group(2)}-{m.group(1)}", text)
 
-    # DD/MM/YY -> YYYY-MM-DD
     def repl_short(m):
         d, mth, y = m.groups()
         y = int(y)
@@ -110,22 +102,20 @@ def convert_dates(text: str):
     return text
 
 
-def normalize_line(line: str, header=False):
+def convert_utc_hour(text: str):
 
-    if header:
-        line = normalize_header_names(line)
+    if "UTC" not in text:
+        return text
 
-    line = convert_dates(line)
-
-    return line
+    return hour_utc_pattern.sub(lambda m: f"{m.group(1)}:{m.group(2)}", text)
 
 
 for file in INMET_DIR.rglob("*.CSV"):
 
     changed = False
-    new_lines = []
+    temp_file = file.with_suffix(".tmp")
 
-    with open(file, "r", encoding="latin-1") as f:
+    with open(file, "r", encoding="latin-1") as f, open(temp_file, "w", encoding="latin-1") as out:
 
         header = True
 
@@ -134,17 +124,31 @@ for file in INMET_DIR.rglob("*.CSV"):
             if header and data_line_pattern.match(line):
                 header = False
 
-            new_line = normalize_line(line, header)
+            new_line = line
+
+            if header:
+                if ":;" in new_line:
+                    key, value = new_line.rstrip("\n").split(":;", 1)
+                    key = replacements.get(key.strip(), key.strip())
+                    value = replacements.get(value.strip(), value.strip())
+                    new_line = f"{key}:;{value}\n"
+                else:
+                    new_line = replace_all(new_line)
+
+            new_line = convert_dates(new_line)
+
+            if not header:
+                new_line = convert_utc_hour(new_line)
 
             if new_line != line:
                 changed = True
 
-            new_lines.append(new_line)
+            out.write(new_line)
 
     if changed:
         print(f"Updated → {file}")
-
-        with open(file, "w", encoding="latin-1") as f:
-            f.writelines(new_lines)
+        temp_file.replace(file)
+    else:
+        temp_file.unlink()
 
 print("Normalization finished.")
