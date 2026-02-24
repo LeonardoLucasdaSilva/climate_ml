@@ -12,8 +12,8 @@ replacements = {
     "ESTAC?O": "ESTACAO",
     "REGIÃO": "REGIAO",
     "REGI?O": "REGIAO",
-    "FUNDAÇÃO (YYYY-MM-DD)": "FUNDACAO",
-    "FUNDAC?O":"FUNDACAO",
+    "DATA DE FUNDAÇÃO (YYYY-MM-DD)": "DATA DE FUNDACAO",
+    "DATA DE FUNDAC?O": "DATA DE FUNDACAO",
     "DATA (YYYY-MM-DD)": "DATA",
     "Data": "DATA",
     "HORA (UTC)": "HORA",
@@ -33,23 +33,33 @@ replacements = {
     "TEMPERATURA ORVALHO MIN. NA HORA ANT. (AUT) (°C)": "PONTO_ORVALHO_MIN",
     "UMIDADE REL. MAX. NA HORA ANT. (AUT) (%)": "UMIDADE_MAX",
     "UMIDADE REL. MIN. NA HORA ANT. (AUT) (%)": "UMIDADE_MIN",
-    "UMIDADE RELATIVA DO AR, HORARIA (%)": "UMIDADE_MIN",
+    "UMIDADE RELATIVA DO AR, HORARIA (%)": "UMIDADE",
     "VENTO, DIREÇÃO HORARIA (gr) (° (gr))": "DIRECAO_VENTO",
     "VENTO, RAJADA MAXIMA (m/s)": "RAJADA_VENTO",
     "VENTO, VELOCIDADE HORARIA (m/s)": "VELOCIDADE_VENTO",
     "BEBDOURO": "BEBEDOURO",
     "SAO LUIS DO PARAITINGA": "SAO LUIZ DO PARAITINGA",
     "FORTE DE COPACABANA": "RIO DE JANEIRO - FORTE DE COPACABANA",
-    "VILA MILITAR" : "RIO DE JANEIRO - VILA MILITAR",
-    "PARATI" : "PARATY",
+    "VILA MILITAR": "RIO DE JANEIRO - VILA MILITAR",
+    "PARATI": "PARATY",
     "MARAMBAIA": "RIO DE JANEIRO-MARAMBAIA",
-    "ECOLOGIA AGRICOLA" : "SEROPEDICA-ECOLOGIA AGRICOLA",
-    "JANAUBA" : "NOVA PORTEIRINHA (JANAUBA)",
-    "PAMPULHA" : "BELO HORIZONTE (PAMPULHA)",
+    "ECOLOGIA AGRICOLA": "SEROPEDICA-ECOLOGIA AGRICOLA",
+    "JANAUBA": "NOVA PORTEIRINHA (JANAUBA)",
+    "PAMPULHA": "BELO HORIZONTE (PAMPULHA)",
     "BRASNORTE (MUNDO NOVO)": "BRASNORTE (NOVO MUNDO)",
     "PRES. KENNEDY": "PRESIDENTE KENNEDY",
-    "FORMOSO DO RIO PRETO" : "FORMOSA DO RIO PRETO",
-    "LUIZ EDUARDO MAGALHAES" : "LUIS EDUARDO MAGALHAES"
+    "FORMOSO DO RIO PRETO": "FORMOSA DO RIO PRETO",
+    "LUIZ EDUARDO MAGALHAES": "LUIS EDUARDO MAGALHAES",
+    "PORTO ALEGRE": "PORTO ALEGRE - JARDIM BOTANICO",
+    "SAQUAREMA": "SAQUAREMA - SAMPAIO CORREA",
+    "SAQUAREMA - SAMPAIO CORREIA": "SAQUAREMA - SAMPAIO CORREA",
+    "NOVA FRIBURGO": "NOVA FRIBURGO - SALINAS",
+    "SAO TOME": "CAMPOS DOS GOYTACAZES - SAO TOME",
+    "BELO HORIZONTE (PAMPULHA)": "BELO HORIZONTE - PAMPULHA",
+    "XEREM": "DUQUE DE CAXIAS - XEREM",
+    "CAMPOS": "CAMPOS DOS GOYTACAZES",
+    "TERESOPOLIS": "TERESOPOLIS-PARQUE NACIONAL",
+
 }
 
 # Date patterns
@@ -62,9 +72,23 @@ data_line_pattern = re.compile(r"\s*\d{4}[-/]\d{2}[-/]\d{2};")
 
 
 def normalize_header_names(line: str):
+
+    line = line.rstrip("\n")
+
+    # Metadata lines like KEY:;VALUE
+    if ":;" in line:
+        key, value = line.split(":;", 1)
+
+        key = replacements.get(key.strip(), key.strip())
+        value = replacements.get(value.strip(), value.strip())
+
+        return f"{key}:;{value}\n"
+
+    # Column header line
     for old, new in replacements.items():
         line = line.replace(old, new)
-    return line
+
+    return line + "\n"
 
 
 def convert_dates(text: str):
@@ -87,6 +111,7 @@ def convert_dates(text: str):
 
 
 def normalize_line(line: str, header=False):
+
     if header:
         line = normalize_header_names(line)
 
