@@ -24,6 +24,7 @@ def save_station_artifacts(
     y_pred_val,
     y_true_test,
     y_pred_test,
+    y_inmet_test,
     metadata: dict,
     config: dict,
 ):
@@ -86,6 +87,7 @@ def save_station_artifacts(
         file_prefix,
         base_dir,
         metadata,
+        y_inmet_test,
     )
 
     # ======================================================
@@ -117,6 +119,7 @@ def _save_prediction_plots(
     file_prefix,
     base_dir,
     metadata,
+    y_inmet = None
 ):
     """
     Saves scatter + timeseries + separate plots
@@ -150,12 +153,23 @@ def _save_prediction_plots(
     ts_dir = split_dir / "timeseries"
     ts_dir.mkdir(parents=True, exist_ok=True)
 
-    fig_ts = plot_real_vs_predicted_timeseries(
-        y_true,
-        y_pred,
-        title=f"{split_name.capitalize()} - Real vs Predicted",
-        metadata=metadata,
-    )
+    if y_inmet is not None:
+        fig_ts = plot_real_vs_predicted_timeseries(
+            y_true,
+            y_pred,
+            y_inmet,
+            title=f"{split_name.capitalize()} - Real vs Predicted",
+            metadata=metadata,
+        )
+
+    else:
+        fig_ts = plot_real_vs_predicted_timeseries(
+            y_true,
+            y_pred,
+            title=f"{split_name.capitalize()} - Real vs Predicted",
+            metadata=metadata,
+        )
+
 
     save_plot(
         fig_ts,
@@ -168,12 +182,22 @@ def _save_prediction_plots(
     ts_sep_dir = split_dir / "timeseries_separate"
     ts_sep_dir.mkdir(parents=True, exist_ok=True)
 
-    fig_sep = plot_real_and_predicted_separate(
-        y_true,
-        y_pred,
-        title=f"{split_name.capitalize()} - Real and Predicted (Separate)",
-        metadata=metadata,
-    )
+    if y_inmet is not None:
+        fig_sep = plot_real_vs_predicted_timeseries(
+            y_true,
+            y_pred,
+            y_inmet,
+            title=f"{split_name.capitalize()} - - Real and Predicted (Separate)",
+            metadata=metadata,
+        )
+
+    else:
+        fig_sep = plot_real_vs_predicted_timeseries(
+            y_true,
+            y_pred,
+            title=f"{split_name.capitalize()} - - Real and Predicted (Separate)",
+            metadata=metadata,
+        )
 
     save_plot(
         fig_sep,
