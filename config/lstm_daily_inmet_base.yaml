@@ -1,12 +1,13 @@
 experiment:
   model: lstm
   frequency: daily
-  description: "LSTM daily precipitation forecasting"
-  #stations_mode: "all"
+  description: "LSTM daily precipitation forecasting - INMET as main dataset"
   stations_mode: "single"
-  single_station_name: "ALEGRETE"
+  state: "rio_grande_do_sul"
+  state_acronym: "RS"
+  single_station_name: "PORTO ALEGRE - JARDIM BOTANICO"
+  single_station_code: "A801"
   output_mode: "global_debug"
-  #output_mode: "standard"
 
 model:
   hidden_size: 16
@@ -14,20 +15,18 @@ model:
   dropout: 0.2
 
 data:
+  source: "inmet"
   timesteps: 10
   horizon: 1
   stations_csv: inmet_pos.csv
-  initial_date: "2015-01-01"
-  end_date: "2020-12-31"
+  initial_date: "2020-01-01"
+  end_date: "2024-06-30"
   train_split: 0.6
   val_split: 0.1
   variables:
-    #- 2m_dewpoint_temperature
-    #- surface_pressure
-    #- surface_solar_radiation_downwards
-    #- 2m_temperature
-    - total_precipitation
+    - total_precipitation   # logical name, to standardize the data
   target: total_precipitation
+  use_inmet_test: true
 
 training:
   epochs: 100
@@ -38,4 +37,3 @@ training:
 preprocessing:
   use_log: false
   use_scaler: false
-

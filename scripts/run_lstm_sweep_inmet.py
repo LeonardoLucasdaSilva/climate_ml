@@ -21,18 +21,18 @@ ensure_dir(runs_root)
 # ==================================
 
 timesteps_list = [3, 5, 7, 10, 20, 30]
-loss_list = ["quantile_0.9","quantile_0.8", "weighted_mse", "huber", "mse", "mae"]
+loss_list = ["quantile_0.9","quantile_0.8","quantile_0.7","quantile_0.6", "weighted_mse", "huber", "mse", "mae"]
 use_scaler_list = [True, False]
 horizon_list = [1]
 
-days_before_list = [365, 720, 1440, 2800]
-dataset_end = "2020-12-31"
+days_before_list = [365, 720, 1500]
+dataset_end = "2024-06-30"
 
 
 # ----------------------------------
 # Load base config
 # ----------------------------------
-base_config = load_config("lstm_daily_base.yaml")
+base_config = load_config("lstm_daily_inmet_base.yaml")
 
 
 sweep_params = {
@@ -55,8 +55,8 @@ for config in generate_sweep_configs(
 
     run_dir = initialize_run_directory(config, runs_root)
 
-    print("=" * 80)
+    print("=" * 100)
     print(f"Running experiment: {config['experiment']['run_name']}")
-    print("=" * 80)
+    print("=" * 100)
 
     run_all_stations(lstm_builder, config, run_dir)

@@ -69,6 +69,7 @@ def resolve_output_directory(cidade, config, run_dir):
         If output_mode is not supported.
     """
     mode = config.get("experiment", {}).get("output_mode", "standard")
+    source = config["data"].get("source", "era5").upper()  # ERA5 ou INMET
 
     if mode == "standard":
         return run_dir / "locations" / cidade
@@ -77,7 +78,7 @@ def resolve_output_directory(cidade, config, run_dir):
         return run_dir / "debug_outputs"
 
     if mode == "global_debug":
-        root = RUNS_DIR / "_GLOBAL_DEBUG"
+        root = RUNS_DIR / f"GLOBAL_DEBUG_{source}"
         root.mkdir(parents=True, exist_ok=True)
         return root
 

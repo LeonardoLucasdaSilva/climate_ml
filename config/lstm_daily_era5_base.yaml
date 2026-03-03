@@ -1,0 +1,46 @@
+experiment:
+  model: lstm
+  frequency: daily
+  description: "LSTM daily precipitation forecasting"
+  #stations_mode: "all"
+  stations_mode: "single"
+  state: "rio_grande_do_sul"
+  state_acronym: "RS"
+  single_station_name: "PORTO ALEGRE - JARDIM BOTANICO"
+  single_station_code: "A801"
+  output_mode: "global_debug"
+  #output_mode: "standard"
+
+model:
+  hidden_size: 16
+  num_layers: 1
+  dropout: 0.2
+
+data:
+  source: "era5"
+  timesteps: 10
+  horizon: 1
+  stations_csv: inmet_pos.csv
+  initial_date: "2015-01-01"
+  end_date: "2024-06-31"
+  train_split: 0.6
+  val_split: 0.1
+  variables:
+    #- 2m_dewpoint_temperature
+    #- surface_pressure
+    #- surface_solar_radiation_downwards
+    #- 2m_temperature
+    - total_precipitation
+  target: total_precipitation
+  use_inmet_test : true
+
+training:
+  epochs: 100
+  batch_size: 32
+  learning_rate: 0.001
+  patience: 10
+
+preprocessing:
+  use_log: false
+  use_scaler: false
+
