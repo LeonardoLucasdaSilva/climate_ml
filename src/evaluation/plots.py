@@ -224,22 +224,39 @@ def save_table_as_image(df, save_path, dpi=300, identifier: str = None):
 
 
 def plot_real_vs_predicted_timeseries(
-    y_true: np.ndarray,
+    y_era5: np.ndarray,
     y_pred: np.ndarray,
-    title: str = "Real vs Predicted Time Series",
+    y_inmet: np.ndarray | None = None,
+    title: str = "Prediction vs ERA5 vs INMET",
     metadata: dict | None = None,
 ):
     """
-    Plot true vs predicted time series using metadata date range as x-axis.
+    Plot prediction, ERA5 reference and optional INMET data.
     """
 
-    dates = _build_dates_from_metadata(metadata, title, len(y_true))
+    dates = _build_dates_from_metadata(metadata, title, len(y_era5))
 
     fig, ax = plt.subplots(figsize=(12, 5))
 
     if dates is not None:
-        ax.plot(dates, y_true, label="True", linewidth=2)
-        ax.plot(dates, y_pred, label="Predicted", linewidth=2, linestyle="--")
+        ax.plot(dates, y_era5, label="ERA5", linewidth=2)
+        ax.plot(
+            dates,
+            y_pred,
+            label="Prediction",
+            linewidth=2,
+            linestyle="--",
+        )
+
+        if y_inmet is not None:
+            ax.plot(
+                dates,
+                y_inmet,
+                label="INMET",
+                linewidth=2,
+                alpha=0.8,
+            )
+
         ax.set_xlabel("Date")
 
         ax.xaxis.set_major_locator(mdates.AutoDateLocator())
@@ -247,8 +264,12 @@ def plot_real_vs_predicted_timeseries(
         fig.autofmt_xdate()
 
     else:
-        ax.plot(y_true, label="True", linewidth=2)
-        ax.plot(y_pred, label="Predicted", linewidth=2, linestyle="--")
+        ax.plot(y_era5, label="ERA5", linewidth=2)
+        ax.plot(y_pred, label="Prediction", linewidth=2, linestyle="--")
+
+        if y_inmet is not None:
+            ax.plot(y_inmet, label="INMET", linewidth=2, alpha=0.8)
+
         ax.set_xlabel("Time Step")
 
     ax.set_title(title, fontsize=14, weight="bold")
@@ -259,11 +280,12 @@ def plot_real_vs_predicted_timeseries(
     if metadata:
         meta_text = " | ".join(f"{k}: {v}" for k, v in metadata.items())
         fig.text(
-            0.5, 0.93,
+            0.5,
+            0.93,
             meta_text,
             ha="center",
             fontsize=9,
-            alpha=0.8
+            alpha=0.8,
         )
 
     fig.tight_layout(rect=[0, 0, 1, 0.92])
@@ -271,45 +293,73 @@ def plot_real_vs_predicted_timeseries(
     return fig
 
 def plot_real_and_predicted_separate(
-    y_true: np.ndarray,
+    y_era5: np.ndarray,
     y_pred: np.ndarray,
-    title: str = "Real vs Predicted Time Series",
+    y_inmet: np.ndarray | None = None,
+    title: str = "Prediction vs ERA5 vs INMET",
     metadata: dict | None = None,
 ):
     """
-    Plot true and predicted time series in two stacked subplots
-    using metadata date range as x-axis.
+    Plot ERA5, Prediction and optional INMET in stacked subplots.
     """
 
-    dates = _build_dates_from_metadata(metadata, title, len(y_true))
+    dates = _build_dates_from_metadata(metadata, title, len(y_era5))
+
+    n_plots = 3 if y_inmet is not None else 2
 
     fig, axes = plt.subplots(
-        2, 1,
-        figsize=(12, 7),
-        sharex=True
+        n_plots,
+        1,
+        figsize=(12, 3.5 * n_plots),
+        sharex=True,
     )
 
-    # True
-    if dates is not None:
-        axes[0].plot(dates, y_true, linewidth=2)
-        axes[1].plot(dates, y_pred, linewidth=2)
+    if n_plots == 2:
+        ax_era5, ax_pred = axes
+    else:
+        ax_era5, ax_pred, ax_inmet = axes
 
-        axes[1].set_xlabel("Date")
-        axes[1].xaxis.set_major_locator(mdates.AutoDateLocator())
-        axes[1].xaxis.set_major_formatter(mdates.DateFormatter("%Y-%m"))
+    # ERA5
+    if dates is not None:
+        ax_era5.plot(dates, y_era5, linewidth=2)
+    else:
+        ax_era5.plot(y_era5, linewidth=2)
+
+    ax_era5.set_title("ERA5")
+    ax_era5.set_ylabel("Value")
+    ax_era5.grid(True, alpha=0.3)
+
+    # Prediction
+    if dates is not None:
+        ax_pred.plot(dates, y_pred, linewidth=2)
+    else:
+        ax_pred.plot(y_pred, linewidth=2)
+
+    ax_pred.set_title("Prediction")
+    ax_pred.set_ylabel("Value")
+    ax_pred.grid(True, alpha=0.3)
+
+    # INMET (optional)
+    if y_inmet is not None:
+        if dates is not None:
+            ax_inmet.plot(dates, y_inmet, linewidth=2)
+        else:
+            ax_inmet.plot(y_inmet, linewidth=2)
+
+        ax_inmet.set_title("INMET")
+        ax_inmet.set_ylabel("Value")
+        ax_inmet.grid(True, alpha=0.3)
+
+    # X-axis formatting
+    if dates is not None:
+        axes[-1].set_xlabel("Date")
+        axes[-1].xaxis.set_major_locator(mdates.AutoDateLocator())
+        axes[-1].xaxis.set_major_formatter(
+            mdates.DateFormatter("%Y-%m")
+        )
         fig.autofmt_xdate()
     else:
-        axes[0].plot(y_true, linewidth=2)
-        axes[1].plot(y_pred, linewidth=2)
-        axes[1].set_xlabel("Time Step")
-
-    axes[0].set_title("True")
-    axes[0].set_ylabel("Value")
-    axes[0].grid(True, alpha=0.3)
-
-    axes[1].set_title("Predicted")
-    axes[1].set_ylabel("Value")
-    axes[1].grid(True, alpha=0.3)
+        axes[-1].set_xlabel("Time Step")
 
     fig.suptitle(title, fontsize=14, weight="bold")
 
@@ -321,7 +371,7 @@ def plot_real_and_predicted_separate(
             meta_text,
             ha="center",
             fontsize=9,
-            alpha=0.8
+            alpha=0.8,
         )
 
     fig.tight_layout(rect=[0, 0, 1, 0.92])

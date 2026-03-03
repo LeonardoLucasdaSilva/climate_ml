@@ -18,11 +18,21 @@ def run_single_station(cidade, model_builder, config, run_dir, base_dir):
     # -----------------------
     # DATA
     # -----------------------
-    (X_train, X_val, X_test,
-     y_train, y_val, y_test,
-     train_end, val_end), scaler_y, use_log = (
-        prepare_station_data(cidade, config)
-    )
+
+    splits, scaler_y, use_log = prepare_station_data(cidade, config)
+
+    X_train = splits["X_train"]
+    X_val = splits["X_val"]
+    X_test = splits["X_test"]
+
+    y_train = splits["y_train"]
+    y_val = splits["y_val"]
+    y_test = splits["y_test"]
+
+    train_end = splits["train_end"]
+    val_end = splits["val_end"]
+
+    y_test_inmet = splits.get("y_test_inmet")
 
     # -----------------------
     # MODEL
@@ -94,7 +104,7 @@ def run_single_station(cidade, model_builder, config, run_dir, base_dir):
 
         "Loss": loss_name,
         "Scaler": "Yes" if config["preprocessing"]["use_scaler"] else "No",
-        "Station:": cidade
+        "Station": cidade,
     }
 
     metrics = save_station_artifacts(
@@ -108,6 +118,7 @@ def run_single_station(cidade, model_builder, config, run_dir, base_dir):
         y_pred_val=y_pred_val,
         y_true_test=y_true_test,
         y_pred_test=y_pred_test,
+        y_inmet_test = y_test_inmet,
         metadata=metadata,
         config=config,
     )
