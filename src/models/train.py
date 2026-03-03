@@ -94,6 +94,7 @@ def train_regression_model(
         "val_loss": []
     }
 
+    best_model_state = model.state_dict()
     best_val_loss = float("inf")
     epochs_no_improve = 0
 
