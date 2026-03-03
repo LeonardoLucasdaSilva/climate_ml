@@ -20,7 +20,7 @@ file_regex = re.compile(
 # --------------------------------------------
 
 TARGET_COLUMNS = [
-    "PRECIPITACAO_TOTAL_HORARIO",
+    "PRECIPITACAO_TOTAL",
     "PRESSAO",
     "PRESSAO_MIN",
     "PRESSAO_MAX",
@@ -135,8 +135,8 @@ def normalize_columns(df):
     df.columns = cols
 
     rename_map = {
-        "PRECIPITACAO_TOTAL": "PRECIPITACAO_TOTAL_HORARIO",
-        "PRECIPITACAO_TOTAL_HORARIO_MM": "PRECIPITACAO_TOTAL_HORARIO",
+        "PRECIPITACAO_TOTAL": "PRECIPITACAO_TOTAL",
+        "PRECIPITACAO_TOTAL_HORARIO_MM": "PRECIPITACAO_TOTAL",
         "VENTO_DIRECAO": "DIRECAO_VENTO",
         "VENTO_RAJADA_MAXIMA": "RAJADA_VENTO",
         "VENTO_VELOCIDADE": "VELOCIDADE_VENTO",
@@ -188,10 +188,16 @@ def read_data(file):
         sep=";",
         encoding="latin-1",
         skiprows=header_len,
-        low_memory=True
+        decimal=",",
+        na_values=-9999,
+        low_memory=False
     )
 
     df = normalize_columns(df)
+
+    # print(len(df.columns))
+    # for col in df.columns:
+    #     print(repr(col))
 
     date_col = find_column(df.columns, "DATA")
     hour_col = find_column(df.columns, "HORA")
@@ -263,21 +269,38 @@ def process_station(args):
     print("Processing", state, station)
 
     files = deduplicate_files(files)
-
     files = sorted(files, key=lambda x: x["start"])
 
     out_dir = PROCESSED_DIR / state / station
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    dataset_path = out_dir / f"{station}_2000_2025.csv"
+    dataset_path = out_dir / f"{station}_2000_2025_daily.csv"
 
     first_write = True
-
     metadata_records = []
 
-    for year in range(START_YEAR, END_YEAR + 1):
+    # Aggregation rules
+    AGG_RULES = {
+        "PRECIPITACAO_TOTAL": "sum",
+        "PRESSAO": "mean",
+        "PRESSAO_MIN": "min",
+        "PRESSAO_MAX": "max",
+        "RADIACAO": "sum",
+        "TEMPERATURA": "mean",
+        "TEMPERATURA_MAXIMA": "max",
+        "TEMPERATURA_MIN": "min",
+        "PONTO_ORVALHO": "mean",
+        "PONTO_ORVALHO_MAX": "max",
+        "PONTO_ORVALHO_MIN": "min",
+        "UMIDADE": "mean",
+        "UMIDADE_MAX": "max",
+        "UMIDADE_MIN": "min",
+        "DIRECAO_VENTO": "mean",
+        "RAJADA_VENTO": "max",
+        "VELOCIDADE_VENTO": "mean",
+    }
 
-        year_index = build_year_index(year)
+    for year in range(START_YEAR, END_YEAR + 1):
 
         dfs = []
 
@@ -287,7 +310,6 @@ def process_station(args):
                 continue
 
             try:
-
                 df, meta = read_data(f["path"])
 
                 df = df[df.index.year == year]
@@ -303,36 +325,36 @@ def process_station(args):
                 metadata_records.append(meta_record)
 
             except Exception as e:
-
                 print("Error:", f["path"], e)
-
-        # ------------------------------------------------
-        # FIX: ensure empty years still have correct schema
-        # ------------------------------------------------
 
         if dfs:
 
             data = pd.concat(dfs)
             data = data[~data.index.duplicated(keep="first")]
 
+            data_daily = data.resample("D").agg(AGG_RULES)
+
         else:
 
-            data = pd.DataFrame(columns=TARGET_COLUMNS)
-            data.index = pd.DatetimeIndex([])
+            data_daily = pd.DataFrame(columns=TARGET_COLUMNS)
 
-        data = enforce_schema(data)
+        # Ensure full daily index
+        daily_index = pd.date_range(
+            f"{year}-01-01",
+            f"{year}-12-31",
+            freq="D"
+        )
 
-        data = data.reindex(year_index)
+        data_daily = data_daily.reindex(daily_index)
 
-        # Ensure correct column order and 2D structure
-        data = data[TARGET_COLUMNS].copy()
+        data_daily = enforce_schema(data_daily)
 
-        data.insert(0, "DATA", data.index.strftime("%Y-%m-%d"))
-        data.insert(1, "HORA", data.index.strftime("%H:%M:%S"))
+        # Keep only DATE column
+        data_daily.insert(0, "DATA", data_daily.index.strftime("%Y-%m-%d"))
 
-        data.reset_index(drop=True, inplace=True)
+        data_daily.reset_index(drop=True, inplace=True)
 
-        data.to_csv(
+        data_daily.to_csv(
             dataset_path,
             sep=";",
             index=False,
@@ -347,9 +369,7 @@ def process_station(args):
     if not meta_df.empty:
 
         meta_df = meta_df.sort_values("file_start")
-
         meta_path = out_dir / "station_metadata_history.csv"
-
         meta_df.to_csv(meta_path, index=False)
 
     print("Saved", dataset_path)
