@@ -224,22 +224,41 @@ def save_table_as_image(df, save_path, dpi=300, identifier: str = None):
 
 
 def plot_real_vs_predicted_timeseries(
-    y_era5: np.ndarray,
+    y_main: np.ndarray,
     y_pred: np.ndarray,
-    y_inmet: np.ndarray | None = None,
-    title: str = "Prediction vs ERA5 vs INMET",
+    y_ref: np.ndarray | None = None,
+    title: str = "Prediction vs Reference",
     metadata: dict | None = None,
+    main_label: str = "Main",
+    ref_label: str = "Reference",
 ):
-    """
-    Plot prediction, ERA5 reference and optional INMET data.
+    """Plot prediction, main reference series and optional secondary reference.
+
+    Parameters
+    ----------
+    y_main : np.ndarray
+        Main ground-truth series (e.g. ERA5 for ERA5 runs, INMET for INMET runs).
+    y_pred : np.ndarray
+        Model predictions in the same space as ``y_main``.
+    y_ref : np.ndarray | None, optional
+        Optional secondary reference series (e.g. INMET for ERA5 runs, ERA5 for
+        INMET runs). When ``None``, only ``y_main`` and ``y_pred`` are plotted.
+    title : str, optional
+        Plot title.
+    metadata : dict | None, optional
+        Metadata used to reconstruct dates.
+    main_label : str, optional
+        Label for the main ground-truth series.
+    ref_label : str, optional
+        Label for the secondary reference series.
     """
 
-    dates = _build_dates_from_metadata(metadata, title, len(y_era5))
+    dates = _build_dates_from_metadata(metadata, title, len(y_main))
 
     fig, ax = plt.subplots(figsize=(12, 5))
 
     if dates is not None:
-        ax.plot(dates, y_era5, label="ERA5", linewidth=2)
+        ax.plot(dates, y_main, label=main_label, linewidth=2)
         ax.plot(
             dates,
             y_pred,
@@ -248,11 +267,11 @@ def plot_real_vs_predicted_timeseries(
             linestyle="--",
         )
 
-        if y_inmet is not None:
+        if y_ref is not None:
             ax.plot(
                 dates,
-                y_inmet,
-                label="INMET",
+                y_ref,
+                label=ref_label,
                 linewidth=2,
                 alpha=0.8,
             )
@@ -264,11 +283,11 @@ def plot_real_vs_predicted_timeseries(
         fig.autofmt_xdate()
 
     else:
-        ax.plot(y_era5, label="ERA5", linewidth=2)
+        ax.plot(y_main, label=main_label, linewidth=2)
         ax.plot(y_pred, label="Prediction", linewidth=2, linestyle="--")
 
-        if y_inmet is not None:
-            ax.plot(y_inmet, label="INMET", linewidth=2, alpha=0.8)
+        if y_ref is not None:
+            ax.plot(y_ref, label=ref_label, linewidth=2, alpha=0.8)
 
         ax.set_xlabel("Time Step")
 
@@ -292,20 +311,21 @@ def plot_real_vs_predicted_timeseries(
 
     return fig
 
+
 def plot_real_and_predicted_separate(
-    y_era5: np.ndarray,
+    y_main: np.ndarray,
     y_pred: np.ndarray,
-    y_inmet: np.ndarray | None = None,
-    title: str = "Prediction vs ERA5 vs INMET",
+    y_ref: np.ndarray | None = None,
+    title: str = "Prediction vs Reference",
     metadata: dict | None = None,
+    main_label: str = "Main",
+    ref_label: str = "Reference",
 ):
-    """
-    Plot ERA5, Prediction and optional INMET in stacked subplots.
-    """
+    """Plot main, prediction and optional reference in stacked subplots."""
 
-    dates = _build_dates_from_metadata(metadata, title, len(y_era5))
+    dates = _build_dates_from_metadata(metadata, title, len(y_main))
 
-    n_plots = 3 if y_inmet is not None else 2
+    n_plots = 3 if y_ref is not None else 2
 
     fig, axes = plt.subplots(
         n_plots,
@@ -315,68 +335,58 @@ def plot_real_and_predicted_separate(
     )
 
     if n_plots == 2:
-        ax_era5, ax_pred = axes
+        ax_main, ax_pred = axes
     else:
-        ax_era5, ax_pred, ax_inmet = axes
+        ax_main, ax_pred, ax_ref = axes
 
-    # ERA5
+    # --- MAIN ---
     if dates is not None:
-        ax_era5.plot(dates, y_era5, linewidth=2)
+        ax_main.plot(dates, y_main, label=main_label, linewidth=2)
+        ax_main.set_ylabel(main_label)
     else:
-        ax_era5.plot(y_era5, linewidth=2)
+        ax_main.plot(y_main, label=main_label, linewidth=2)
+        ax_main.set_ylabel(main_label)
 
-    ax_era5.set_title("ERA5")
-    ax_era5.set_ylabel("Value")
-    ax_era5.grid(True, alpha=0.3)
+    ax_main.set_title(f"{title} - {main_label}")
+    ax_main.grid(True, alpha=0.3)
 
-    # Prediction
+    # --- PRED ---
     if dates is not None:
-        ax_pred.plot(dates, y_pred, linewidth=2)
+        ax_pred.plot(
+            dates,
+            y_pred,
+            label="Prediction",
+            linewidth=2,
+            linestyle="--",
+        )
     else:
-        ax_pred.plot(y_pred, linewidth=2)
+        ax_pred.plot(y_pred, label="Prediction", linewidth=2, linestyle="--")
 
-    ax_pred.set_title("Prediction")
-    ax_pred.set_ylabel("Value")
+    ax_pred.set_title(f"{title} - Prediction")
     ax_pred.grid(True, alpha=0.3)
 
-    # INMET (optional)
-    if y_inmet is not None:
+    # --- REF (optional) ---
+    if y_ref is not None:
         if dates is not None:
-            ax_inmet.plot(dates, y_inmet, linewidth=2)
+            ax_ref.plot(dates, y_ref, label=ref_label, linewidth=2)
         else:
-            ax_inmet.plot(y_inmet, linewidth=2)
+            ax_ref.plot(y_ref, label=ref_label, linewidth=2)
 
-        ax_inmet.set_title("INMET")
-        ax_inmet.set_ylabel("Value")
-        ax_inmet.grid(True, alpha=0.3)
+        ax_ref.set_title(f"{title} - {ref_label}")
+        ax_ref.grid(True, alpha=0.3)
 
-    # X-axis formatting
     if dates is not None:
-        axes[-1].set_xlabel("Date")
-        axes[-1].xaxis.set_major_locator(mdates.AutoDateLocator())
-        axes[-1].xaxis.set_major_formatter(
-            mdates.DateFormatter("%Y-%m")
-        )
+        for ax in (axes if isinstance(axes, np.ndarray) else [axes]):
+            ax.set_xlabel("Date")
         fig.autofmt_xdate()
     else:
-        axes[-1].set_xlabel("Time Step")
+        for ax in (axes if isinstance(axes, np.ndarray) else [axes]):
+            ax.set_xlabel("Time Step")
 
-    fig.suptitle(title, fontsize=14, weight="bold")
-
-    if metadata:
-        meta_text = " | ".join(f"{k}: {v}" for k, v in metadata.items())
-        fig.text(
-            0.5,
-            0.94,
-            meta_text,
-            ha="center",
-            fontsize=9,
-            alpha=0.8,
-        )
-
-    fig.tight_layout(rect=[0, 0, 1, 0.92])
+    fig.tight_layout()
 
     return fig
+
 
 def plot_error_histogram(
     y_true,
