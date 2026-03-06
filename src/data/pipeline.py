@@ -8,47 +8,67 @@ from src.data.preprocess import create_sliding_windows, prepare_data_seq_to_one
 from src.data.split import temporal_train_val_test_split
 from src.config.paths import PROCESSED_DATA_DIR
 
+
 def load_era5_timeseries(cidade: str, config: dict) -> pd.DataFrame:
-    """
-    Carrega séries temporais ERA5 para uma cidade, combinando variáveis em um DataFrame.
+    """Carrega séries temporais ERA5 para uma cidade.
+
+    Sempre tenta carregar todas as variáveis canônicas conhecidas e,
+    em seguida, ``prepare_station_data`` escolhe quais usar como entrada.
     Index: DatetimeIndex diário.
     """
-    variables = config["data"]["variables"] or ["total_precipitation"]
+    # Lista canônica de variáveis ERA5 suportadas
+    canonical_vars = [
+        "total_precipitation",
+        "temperature",
+        "dewpoint_temperature",
+        "surface_pressure",
+        "solar_radiation",
+    ]
 
     data_frames = []
-    for var in variables:
+    for var in canonical_vars:
         filename = f"era5_{var}_timeseries_{cidade.lower()}_1D.nc"
-        path = load_interim(filename)
+        try:
+            path = load_interim(filename)
+        except FileNotFoundError:
+            # Se o arquivo não existir, simplesmente ignore esta variável
+            continue
 
         ds = xr.open_dataset(path)
         da = list(ds.data_vars.values())[0]
         df_var = da.to_dataframe(name=var)
         data_frames.append(df_var)
 
+    if not data_frames:
+        raise RuntimeError(
+            f"Nenhum arquivo ERA5 encontrado para cidade `{cidade}` nas variáveis canônicas."
+        )
+
     df = pd.concat(data_frames, axis=1)
 
     df = df.loc[
-        config["data"]["initial_date"]:
-        config["data"]["end_date"]
+        config["data"]["initial_date"] : config["data"]["end_date"]
     ]
 
     return df
 
 
 def load_inmet_timeseries(cidade: str, config: dict) -> pd.DataFrame:
-    """
-    Carrega séries temporais INMET para uma estação (cidade),
-    usando o código da estação e o estado do config.
+    """Carrega séries temporais INMET para uma estação (cidade).
+
+    Usa nomes lógicos padronizados nas colunas de saída e carrega
+    todas as variáveis canônicas disponíveis no CSV. A escolha de quais
+    variáveis usar como entrada é feita em ``prepare_station_data``.
     """
     state_acronym = config["experiment"]["state_acronym"]
     station_code = config["experiment"]["single_station_code"]
 
     csv_path = (
-        PROCESSED_DATA_DIR /
-        "inmet" /
-        state_acronym /
-        station_code /
-        f"{station_code}_2000_2025_daily.csv"
+        PROCESSED_DATA_DIR
+        / "inmet"
+        / state_acronym
+        / station_code
+        / f"{station_code}_2000_2025_daily.csv"
     )
 
     df = pd.read_csv(csv_path, sep=";")
@@ -56,40 +76,48 @@ def load_inmet_timeseries(cidade: str, config: dict) -> pd.DataFrame:
     df = df.set_index("date")
 
     df = df.loc[
-        config["data"]["initial_date"]:
-        config["data"]["end_date"]
+        config["data"]["initial_date"] : config["data"]["end_date"]
     ]
 
-    # Mapeia nome lógico -> coluna INMET
+    # Mapeia nome lógico -> coluna INMET padronizada
+    # Ajuste aqui se os nomes das colunas INMET mudarem.
     mapping = {
         "total_precipitation": "PRECIPITACAO_TOTAL",
+        "temperature": "TEMPERATURA",
+        "dewpoint_temperature": "PONTO_ORVALHO",
+        "surface_pressure": "PRESSAO",
+        "solar_radiation": "RADIACAO",
     }
 
-    variables = config["data"]["variables"] or ["total_precipitation"]
     cols = {}
-    for var in variables:
-        inmet_col = mapping.get(var)
-        if inmet_col not in df.columns:
-            raise KeyError(
-                f"Coluna INMET `{inmet_col}` não encontrada para variável `{var}`."
-            )
-        cols[var] = df[inmet_col]
+    for logical, col in mapping.items():
+        if col in df.columns:
+            cols[logical] = df[col]
+
+    if not cols:
+        raise RuntimeError(
+            f"Nenhuma das colunas INMET esperadas foi encontrada no CSV `{csv_path}`."
+        )
 
     df_out = pd.DataFrame(cols, index=df.index)
-
     return df_out
 
+
 def prepare_station_data(cidade: str, config: dict):
-    """
-    Prepara dados para uma estação, permitindo usar ERA5 ou INMET
-    como dataset principal, com possibilidade de usar a outra fonte
-    como série de referência de teste.
+    """Prepara dados para uma estação.
+
+    Permite usar ERA5 ou INMET como dataset principal, com possibilidade
+    de usar a outra fonte como série de referência de teste.
+
+    Importante: o alvo (``config['data']['target']``) não precisa estar
+    incluído em ``config['data']['variables']``. Ele apenas precisa existir
+    no DataFrame carregado pelo *loader* correspondente.
     """
     source = config["data"].get("source", "era5")
     target_column = config["data"]["target"]
 
     # -----------------------
-    # LOAD
+    # LOAD (todas variáveis canônicas disponíveis)
     # -----------------------
     if source == "era5":
         df = load_era5_timeseries(cidade, config)
@@ -98,7 +126,27 @@ def prepare_station_data(cidade: str, config: dict):
     else:
         raise ValueError(f"Fonte de dados desconhecida: {source}")
 
-    X_raw = df.values
+    # Verifica se o alvo existe no DataFrame
+    if target_column not in df.columns:
+        raise KeyError(
+            f"Coluna alvo `{target_column}` não encontrada nas colunas disponíveis: {list(df.columns)}"
+        )
+
+    # Escolhe features de entrada a partir de config['data']['variables'].
+    # Caso não seja especificado, usamos todas as colunas *exceto* o alvo.
+    variables = config["data"].get("variables")
+    if variables is None:
+        feature_cols = [c for c in df.columns if c != target_column]
+    else:
+        feature_cols = list(variables)
+        # Verificação simples de que todas as variáveis existem
+        missing = [v for v in feature_cols if v not in df.columns]
+        if missing:
+            raise KeyError(
+                f"Variáveis de entrada {missing} não encontradas nas colunas disponíveis: {list(df.columns)}"
+            )
+
+    X_raw = df[feature_cols].values
     y_raw = df[target_column].values
 
     # -----------------------
@@ -197,6 +245,7 @@ def prepare_station_data(cidade: str, config: dict):
 
     return splits, scaler_y, use_log
 
+
 def load_and_prepare_inmet(
     cidade: str,
     config: dict,
@@ -267,6 +316,7 @@ def load_and_prepare_inmet(
 
     return y_test_inmet
 
+
 def load_and_prepare_era5_reference(
     cidade: str,
     config: dict,
@@ -304,3 +354,4 @@ def load_and_prepare_era5_reference(
         raise ValueError("ERA5 test length does not match main dataset test length.")
 
     return y_test_ref
+
