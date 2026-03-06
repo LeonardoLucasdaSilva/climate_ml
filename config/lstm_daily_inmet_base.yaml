@@ -24,7 +24,11 @@ data:
   train_split: 0.6
   val_split: 0.1
   variables:
-    - total_precipitation   # logical name, to standardize the data
+    #- total_precipitation
+    #- temperature
+    #- dewpoint_temperature
+    #- surface_pressure
+    - solar_radiation
   target: total_precipitation
   use_inmet_test: true
 

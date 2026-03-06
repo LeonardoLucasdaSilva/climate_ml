@@ -26,11 +26,11 @@ data:
   train_split: 0.6
   val_split: 0.1
   variables:
-    #- 2m_dewpoint_temperature
-    #- surface_pressure
-    #- surface_solar_radiation_downwards
-    #- 2m_temperature
     - total_precipitation
+    #- temperature
+    #- dewpoint_temperature
+    #- surface_pressure
+    #- solar_radiation
   target: total_precipitation
   use_inmet_test : true
 
@@ -43,4 +43,3 @@ training:
 preprocessing:
   use_log: false
   use_scaler: false
-
