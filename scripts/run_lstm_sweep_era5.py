@@ -15,18 +15,23 @@ from src.utils.files import ensure_dir
 runs_root = PROJECT_ROOT / "runs"
 ensure_dir(runs_root)
 
+global_debug_dir = runs_root / "GLOBAL_DEBUG_ERA5"
+ensure_dir(global_debug_dir)
+
 
 # ==================================
 # SWEEP DEFINITION
 # ==================================
 
 timesteps_list = [3, 5, 7, 10, 20, 30]
-loss_list = ["quantile_0.9","quantile_0.8", "weighted_mse", "huber", "mse", "mae"]
+loss_list = ["quantile_0.9","quantile_0.8","quantile_0.7","quantile_0.6", "weighted_mse", "huber", "mse", "mae"]
 use_scaler_list = [True, False]
-horizon_list = [1]
+horizon_list = [1, 2, 3]
 
-days_before_list = [365, 720, 1440, 2800]
-dataset_end = "2024-06-30"
+#days_before_list = [365, 730, 1460, 2921]
+
+days_before_list = [365, 730, 1460]
+dataset_end = "2020-12-31"
 
 
 # ----------------------------------
@@ -59,4 +64,4 @@ for config in generate_sweep_configs(
     print(f"Running experiment: {config['experiment']['run_name']}")
     print("=" * 80)
 
-    run_all_stations(lstm_builder, config, run_dir)
+    run_all_stations(lstm_builder, config, run_dir, global_debug_dir=global_debug_dir)

@@ -53,7 +53,7 @@ COLUMNS_TO_CHECK = [
 # Control variables
 STATE_TO_CHECK = "RS"  # Change to selected state or None for all states
 START_DATE = "2020-01-01"  # Initial interval date (formato: AAAA-MM-DD)
-END_DATE = "2024-06-30"  # End interval date (formato: AAAA-MM-DD)
+END_DATE = "2024-03-31"  # End interval date (formato: AAAA-MM-DD)
 
 # ---------------------------------------------------------------------------
 # Core logic

@@ -13,7 +13,7 @@ from src.models.train import train_regression_model
 from src.models.evaluator import evaluate_model
 
 
-def run_single_station(cidade, model_builder, config, run_dir, base_dir):
+def run_single_station(cidade, model_builder, config, run_dir, base_dir, global_debug_dir=None):
 
     # -----------------------
     # DATA
@@ -81,17 +81,25 @@ def run_single_station(cidade, model_builder, config, run_dir, base_dir):
     initial_date = config["data"]["initial_date"]
     end_date = config["data"]["end_date"]
 
-    # --- Compute boundary dates ---
-    train_end_date = days_after(initial_date, train_end)
-    val_start_date = days_after(train_end_date, 1)
+    window_size = config["data"]["timesteps"]
+    horizon = config["data"]["horizon"]
+    # Sliding-window index i maps to label date: initial_date + i + window_size + horizon - 1.
+    # Add that offset so boundary dates reflect actual label dates, not raw array positions.
+    label_offset = window_size + horizon - 1
 
-    val_end_date = days_after(initial_date, val_end)
-    test_start_date = days_after(val_end_date, 1)
+    # --- Compute boundary dates ---
+    # train_end   = first val index  → last train label is at index train_end - 1
+    # val_end     = first test index → last val   label is at index val_end   - 1
+    train_end_date = days_after(initial_date, train_end - 1 + label_offset)
+    val_start_date = days_after(initial_date, train_end + label_offset)
+
+    val_end_date   = days_after(initial_date, val_end - 1 + label_offset)
+    test_start_date = days_after(initial_date, val_end + label_offset)
 
     # --- Compute durations ---
     train_days = train_end
     val_days = val_end - train_end
-    test_days = days_between(test_start_date, end_date)-1
+    test_days = days_between(test_start_date, end_date) + 1
 
     # --- Metadata ---
     metadata = {
@@ -107,6 +115,13 @@ def run_single_station(cidade, model_builder, config, run_dir, base_dir):
         "Station": cidade,
     }
 
+    # --- Test date range (one date per label in the test set) ---
+    test_dates = pd.date_range(
+        start=test_start_date,
+        periods=len(y_true_test),
+        freq="D",
+    ).strftime("%Y-%m-%d").to_numpy()
+
     metrics = save_station_artifacts(
         cidade=cidade,
         run_name=run_name,
@@ -118,14 +133,16 @@ def run_single_station(cidade, model_builder, config, run_dir, base_dir):
         y_pred_val=y_pred_val,
         y_true_test=y_true_test,
         y_pred_test=y_pred_test,
-        y_inmet_test = y_test_inmet,
+        y_inmet_test=y_test_inmet,
         metadata=metadata,
         config=config,
+        global_debug_dir=global_debug_dir,
+        test_dates=test_dates,
     )
 
     return metrics
 
-def run_all_stations(model_builder, config: dict, run_dir: Path):
+def run_all_stations(model_builder, config: dict, run_dir: Path, global_debug_dir=None):
 
     summary = {}
     benchmark = {}
@@ -149,6 +166,7 @@ def run_all_stations(model_builder, config: dict, run_dir: Path):
             config,
             run_dir,
             base_dir=base_dir,
+            global_debug_dir=global_debug_dir,
         )
 
         summary[cidade] = metrics

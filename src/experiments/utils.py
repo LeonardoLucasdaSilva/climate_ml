@@ -53,7 +53,8 @@ def resolve_output_directory(cidade, config, run_dir):
         config["experiment"]["output_mode"] can be:
             - "standard": per-station folder inside run_dir/locations/
             - "debug": shared debug folder inside run_dir/
-            - "global_debug": shared global debug folder inside RUNS_DIR/
+            - "global_debug": shared global debug folder inside RUNS_DIR/, but with
+                            a run-specific subdirectory to avoid overwriting predictions
     run_dir : pathlib.Path
         Root directory of the current experiment run.
 
@@ -78,8 +79,13 @@ def resolve_output_directory(cidade, config, run_dir):
         return run_dir / "debug_outputs"
 
     if mode == "global_debug":
-        root = RUNS_DIR / f"GLOBAL_DEBUG_{source}"
+        # FIXED: Include run-specific subdirectory even in global_debug mode
+        # This prevents predictions from different runs from overwriting each other
+        run_name = config.get("experiment", {}).get("run_name", run_dir.name)
+        root = RUNS_DIR / f"GLOBAL_DEBUG_{source}" / run_name
         root.mkdir(parents=True, exist_ok=True)
         return root
 
     raise ValueError("Unsupported output_mode")
+
+

@@ -8,8 +8,8 @@ experiment:
   state_acronym: "RS"
   single_station_name: "PORTO ALEGRE - JARDIM BOTANICO"
   single_station_code: "A801"
-  output_mode: "global_debug"
-  #output_mode: "standard"
+  #output_mode: "global_debug"
+  output_mode: "standard"
 
 model:
   hidden_size: 16
@@ -27,18 +27,22 @@ data:
   val_split: 0.1
   variables:
     - total_precipitation
-    #- temperature
-    #- dewpoint_temperature
+    # 2m_temperature
+    #- 2m_dewpoint_temperature
     #- surface_pressure
-    #- solar_radiation
+    #- surface_solar_radiation_downwards
   target: total_precipitation
-  use_inmet_test : true
+  use_inmet_test : false
 
 training:
   epochs: 100
   batch_size: 32
   learning_rate: 0.001
   patience: 10
+  loss: mse
+  multitask: false             # set true to enable multitask learning
+  multitask_cls_weight: 0.3   # weight for classification loss
+  rain_threshold: 0.1         # mm threshold: above = rain, below = no-rain
 
 preprocessing:
   use_log: false

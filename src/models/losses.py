@@ -56,3 +56,45 @@ class QuantileLoss(nn.Module):
             (self.q - 1) * errors
         )
         return torch.mean(loss)
+
+class MultitaskLoss(nn.Module):
+    """
+    Combines a regression loss (precipitation amount) with a binary
+    classification loss (rain / no-rain) to improve spike detection.
+
+    Args:
+        regression_loss: nn.Module  — e.g. QuantileLoss or nn.MSELoss
+        cls_weight:      float      — weight of the classification loss
+        rain_threshold:  float      — mm threshold to define "rain"
+        is_log:          bool       — whether targets are log-transformed
+    """
+
+    def __init__(
+        self,
+        regression_loss: nn.Module,
+        cls_weight: float = 0.3,
+        rain_threshold: float = 0.1,
+        is_log: bool = False,
+    ):
+        super().__init__()
+        self.regression_loss = regression_loss
+        self.cls_weight = cls_weight
+        self.rain_threshold = rain_threshold
+        self.is_log = is_log
+        self.bce = nn.BCEWithLogitsLoss()
+
+    def forward(
+        self,
+        y_pred_reg: torch.Tensor,   # (B, horizon)
+        y_pred_cls: torch.Tensor,   # (B, horizon) — raw logits
+        y_true: torch.Tensor,       # (B, horizon)
+    ):
+        reg_loss = self.regression_loss(y_pred_reg, y_true)
+
+        y_orig = torch.expm1(y_true) if self.is_log else y_true
+        rain_label = (y_orig > self.rain_threshold).float()
+
+        cls_loss = self.bce(y_pred_cls, rain_label)
+
+        total = reg_loss + self.cls_weight * cls_loss
+        return total, reg_loss.detach(), cls_loss.detach()

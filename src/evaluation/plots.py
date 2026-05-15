@@ -8,22 +8,36 @@ def _build_dates_from_metadata(metadata: dict, title: str, length: int):
     """
     Extract correct date range (Validation or Test) from metadata
     and build a DatetimeIndex matching the series length.
+
+    Priority:
+      1) metadata["dates"] if provided (must match length)
+      2) metadata["Validation_dates"] / metadata["Test_dates"] based on title
+      3) Fallback: parse start date from "Validation"/"Test" text and build range
     """
 
     if metadata is None:
         return None
 
-    # Decide which range to use based on title
+    # 1) Explicit dates
+    if "dates" in metadata:
+        dates = pd.DatetimeIndex(metadata["dates"])
+        return dates[:length]
+
+    # 2) Phase-specific explicit dates
+    if "Validation" in title and "Validation_dates" in metadata:
+        return pd.DatetimeIndex(metadata["Validation_dates"])[:length]
+    if "Test" in title and "Test_dates" in metadata:
+        return pd.DatetimeIndex(metadata["Test_dates"])[:length]
+
+    # 3) Fallback: reconstruct from text fields
     if "Validation" in title and "Validation" in metadata:
         range_str = metadata["Validation"]
     elif "Test" in title and "Test" in metadata:
         range_str = metadata["Test"]
     else:
-        return None  # fallback to index
+        return None  # fallback to simple index
 
-    # Extract start date (before arrow)
-    # Example format:
-    # "2020-01-01 → 2020-12-31 (365 samples)"
+    # Example format: "2020-01-01 → 2020-12-31 (365 samples)"
     start_date = range_str.split("→")[0].strip()
 
     return pd.date_range(
@@ -292,7 +306,7 @@ def plot_real_vs_predicted_timeseries(
         ax.set_xlabel("Time Step")
 
     ax.set_title(title, fontsize=14, weight="bold")
-    ax.set_ylabel("Value")
+    ax.set_ylabel("Precipitation (mm)", fontsize=12)
     ax.legend()
     ax.grid(True, alpha=0.3)
 
@@ -429,8 +443,44 @@ def plot_error_histogram(
 
     return fig
 
-import numpy as np
-import matplotlib.pyplot as plt
+def plot_multistep_horizon_timeseries(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    title: str = "Multi-Step Forecast per Horizon",
+    metadata: dict | None = None,
+):
+    """One subplot per horizon step showing real vs predicted.
+
+    Parameters
+    ----------
+    y_true : ndarray of shape (n_samples, horizon)
+    y_pred : ndarray of shape (n_samples, horizon)
+    """
+    y_true = np.asarray(y_true)
+    y_pred = np.asarray(y_pred)
+    horizon = y_true.shape[1]
+
+    fig, axes = plt.subplots(horizon, 1, figsize=(12, 4 * horizon), sharex=True)
+    if horizon == 1:
+        axes = [axes]
+
+    for h, ax in enumerate(axes):
+        ax.plot(y_true[:, h], label=f"Real (h={h + 1})", linewidth=2)
+        ax.plot(y_pred[:, h], label=f"Predicted (h={h + 1})", linewidth=2, linestyle="--")
+        ax.set_title(f"Horizon step {h + 1}")
+        ax.set_ylabel("Value")
+        ax.legend()
+        ax.grid(True, alpha=0.3)
+
+    axes[-1].set_xlabel("Window index")
+    fig.suptitle(title, fontsize=14, weight="bold")
+
+    if metadata:
+        meta_text = " | ".join(f"{k}: {v}" for k, v in metadata.items())
+        fig.text(0.5, 0.97, meta_text, ha="center", fontsize=9, alpha=0.8)
+
+    fig.tight_layout(rect=[0, 0, 1, 0.96])
+    return fig
 
 
 def plot_absolute_error_timeseries(

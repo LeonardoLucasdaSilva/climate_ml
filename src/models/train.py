@@ -1,6 +1,32 @@
+import copy
 import torch
 import torch.nn as nn
 from torch.utils.data import TensorDataset, DataLoader
+
+from src.models.losses import MultitaskLoss
+
+
+def _compute_loss_and_outputs(model, X_batch, y_batch, criterion):
+    """Helper to handle both single-task and multitask outputs/loss.
+
+    Returns
+    -------
+    loss : torch.Tensor
+        Scalar total loss used for backprop.
+    y_pred_reg : torch.Tensor
+        Regression predictions (for metrics), shape (batch, horizon).
+    """
+    outputs = model(X_batch)
+
+    if isinstance(criterion, MultitaskLoss):
+        # Model is expected to return (y_reg, y_cls_logits)
+        y_pred_reg, y_pred_cls = outputs
+        loss, _, _ = criterion(y_pred_reg, y_pred_cls, y_batch)
+        return loss, y_pred_reg
+
+    # Standard regression case
+    loss = criterion(outputs, y_batch)
+    return loss, outputs
 
 
 def train_regression_model(
@@ -15,46 +41,27 @@ def train_regression_model(
     min_delta=0.0,
     lr=1e-3,
     device=None,
-    criterion = nn.MSELoss(),
+    criterion=nn.MSELoss(),
+    debug=False,  # NEW: Add debug flag
 ):
-    """
-    Trains a PyTorch model for supervised regression with early stopping.
+    """Trains a PyTorch model for supervised regression with early stopping.
 
-    Parameters
-    ----------
-    model : torch.nn.Module
-        PyTorch model to train.
-    X_train, y_train : array-like or torch.Tensor
-        Training data.
-    X_val, y_val : array-like or torch.Tensor
-        Validation data.
-    epochs : int, optional
-        Maximum number of training epochs.
-    batch_size : int, optional
-        Batch size for training.
-    patience : int, optional
-        Number of epochs with no validation improvement before stopping.
-    min_delta : float, optional
-        Minimum change in validation loss to qualify as improvement.
-    lr : float, optional
-        Learning rate.
-    device : torch.device, optional
-        Device to run training on (CPU or CUDA).
-
-    Returns
-    -------
-    history : dict
-        Dictionary containing training and validation loss history.
-    best_val_loss : float
-        Best validation loss achieved during training.
-    :param criterion:
-        Loss function used for training.
+    This function is backward-compatible with single-task training but also
+    supports multitask mode when ``criterion`` is an instance of
+    :class:`MultitaskLoss` and the model returns ``(y_reg, y_cls_logits)``.
     """
 
     if device is None:
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     model = model.to(device)
+
+    # DEBUG: Log initial shapes
+    if debug:
+        print(f"[TRAIN DEBUG] Initial X_train shape: {X_train.shape}")
+        print(f"[TRAIN DEBUG] Initial y_train shape: {y_train.shape}")
+        print(f"[TRAIN DEBUG] Initial X_val shape: {X_val.shape}")
+        print(f"[TRAIN DEBUG] Initial y_val shape: {y_val.shape}")
 
     # Convert numpy to torch tensors if needed
     if not torch.is_tensor(X_train):
@@ -70,6 +77,13 @@ def train_regression_model(
     if y_val.ndim == 3:
         y_val = y_val.squeeze(-1)
 
+    # DEBUG: Log after shape fixing
+    if debug:
+        print(f"[TRAIN DEBUG] After reshape: X_train {X_train.shape}, y_train {y_train.shape}")
+        print(f"[TRAIN DEBUG] X_train[0, -1, :] (last day of first window): {X_train[0, -1, :].numpy() if hasattr(X_train[0, -1, :], 'numpy') else X_train[0, -1, :]}")
+        print(f"[TRAIN DEBUG] y_train[0] (target for first window): {y_train[0].numpy() if hasattr(y_train[0], 'numpy') else y_train[0]}")
+        print(f"[TRAIN DEBUG] y_train[1] (target for second window): {y_train[1].numpy() if hasattr(y_train[1], 'numpy') else y_train[1]}")
+
     train_dataset = TensorDataset(X_train, y_train)
     val_dataset = TensorDataset(X_val, y_val)
 
@@ -77,24 +91,24 @@ def train_regression_model(
         train_dataset,
         batch_size=batch_size,
         shuffle=True,
-        pin_memory=True
+        pin_memory=True,
     )
 
     val_loader = DataLoader(
         val_dataset,
         batch_size=batch_size,
         shuffle=False,
-        pin_memory=True
+        pin_memory=True,
     )
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     history = {
         "train_loss": [],
-        "val_loss": []
+        "val_loss": [],
     }
 
-    best_model_state = model.state_dict()
+    best_model_state = copy.deepcopy(model.state_dict())
     best_val_loss = float("inf")
     epochs_no_improve = 0
 
@@ -110,8 +124,7 @@ def train_regression_model(
 
             optimizer.zero_grad()
 
-            outputs = model(X_batch)
-            loss = criterion(outputs, y_batch)
+            loss, _ = _compute_loss_and_outputs(model, X_batch, y_batch, criterion)
 
             loss.backward()
             optimizer.step()
@@ -129,8 +142,9 @@ def train_regression_model(
                 X_batch = X_batch.to(device)
                 y_batch = y_batch.to(device)
 
-                outputs = model(X_batch)
-                loss = criterion(outputs, y_batch)
+                loss, _ = _compute_loss_and_outputs(
+                    model, X_batch, y_batch, criterion
+                )
 
                 val_loss += loss.item()
 
@@ -143,7 +157,7 @@ def train_regression_model(
         if val_loss < best_val_loss - min_delta:
             best_val_loss = val_loss
             epochs_no_improve = 0
-            best_model_state = model.state_dict()  # save best weights
+            best_model_state = copy.deepcopy(model.state_dict())  # save best weights
         else:
             epochs_no_improve += 1
 

@@ -5,7 +5,7 @@ from src.spatial.grid import latlon_to_grid
 # Read the positions from inmet stations from a csv file and store them in a pandas dataframe
 df = pd.read_csv('../data/inmet_pos.csv')
 df.columns = ['cidade', 'lat', 'lon']
-era5_columns = ["2m_dewpoint_temperature", "surface_pressure", "surface_solar_radiation_downwards", "2m_temperature", "total_precipitation"]
+era5_columns = ["total_cloud_cover"]
 
 
 # Download the timeseries from all stations given the closest era5 grid point

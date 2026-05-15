@@ -6,10 +6,17 @@ def create_sliding_windows(
     y,
     window_size,
     horizon=1,
-    multi_step=False
 ):
     """
-    Transform multivariate time series into sliding windows for forecasting.
+    Transform multivariate time series into sliding windows for direct forecasting.
+
+    Each window of `window_size` past timesteps is paired with a single target
+    value located `horizon` steps after the window end (direct multi-step):
+      - horizon=1 → predict y[t+1]   (next day)
+      - horizon=2 → predict y[t+2]   (2 days ahead)
+      - horizon=3 → predict y[t+3]   (3 days ahead)
+
+    Train one model per horizon value to obtain multi-step forecasts.
 
     Parameters
     ----------
@@ -18,29 +25,22 @@ def create_sliding_windows(
     y : array-like of shape (n_samples,)
         Target variable.
     window_size : int
-        Number of past timesteps.
+        Number of past timesteps used as input.
     horizon : int
-        Forecast horizon.
-    multi_step : bool
-        Whether to predict multiple future steps (not implemented).
+        How many steps ahead to predict (≥ 1).
 
     Returns
     -------
     X_windows : ndarray of shape (n_windows, window_size, n_features)
-    y_windows : ndarray of shape (n_windows,) or (n_windows, horizon)
+    y_windows : ndarray of shape (n_windows, 1)
     """
-
-    if multi_step:
-        print("Multi-step not implemented yet")
-        return None
-
     X_windows, y_windows = [], []
 
     m = len(X) - (window_size + horizon)
 
     for i in range(m + 1):
         X_windows.append(X[i : i + window_size])
-        y_windows.append(y[i + window_size + horizon - 1])
+        y_windows.append([y[i + window_size + horizon - 1]])
 
     return np.array(X_windows), np.array(y_windows)
 
@@ -80,8 +80,9 @@ def prepare_data_seq_to_one(X, y, num_features, scaler_x=None, scaler_y=None):
     # Reshape back to 3D
     X_scaled = X_scaled_2d.reshape(samples, timesteps, features)
 
-    # Scale target separately
-    y_scaled = scaler_y.fit_transform(y.reshape(-1, 1))
+    # Scale target separately — works for both (n, 1) and (n, horizon)
+    y_shape = y.shape
+    y_scaled = scaler_y.fit_transform(y.reshape(-1, 1)).reshape(y_shape)
 
     return X_scaled, y_scaled, scaler_x, scaler_y
 

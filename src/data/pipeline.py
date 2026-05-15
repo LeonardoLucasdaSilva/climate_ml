@@ -19,10 +19,10 @@ def load_era5_timeseries(cidade: str, config: dict) -> pd.DataFrame:
     # Lista canônica de variáveis ERA5 suportadas
     canonical_vars = [
         "total_precipitation",
-        "temperature",
-        "dewpoint_temperature",
+        "2m_temperature",
+        "2m_dewpoint_temperature",
         "surface_pressure",
-        "solar_radiation",
+        "surface_solar_radiation_downwards",
     ]
 
     data_frames = []
@@ -178,7 +178,6 @@ def prepare_station_data(cidade: str, config: dict):
             X, y, num_features=num_features
         )
     else:
-        y = y.reshape(-1, 1)
         scaler_x, scaler_y = None, None
 
     # -----------------------

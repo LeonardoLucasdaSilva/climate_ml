@@ -23,10 +23,10 @@ ensure_dir(runs_root)
 timesteps_list = [3, 5, 7, 10, 20, 30]
 loss_list = ["quantile_0.9","quantile_0.8","quantile_0.7","quantile_0.6", "weighted_mse", "huber", "mse", "mae"]
 use_scaler_list = [True, False]
-horizon_list = [1]
+horizon_list = [1, 2, 3]
 
 days_before_list = [365, 720, 1500]
-dataset_end = "2024-06-30"
+dataset_end = "2024-03-31"
 
 
 # ----------------------------------
