@@ -37,7 +37,7 @@ def main():
         download_era5(
             dataset=spec["dataset"],
             request=spec["request"],
-            filename=spec["filename"]+".zip",
+            filename=spec["filename"],
         )
 
 if __name__ == "__main__":

@@ -12,10 +12,12 @@ def download_era5(
     overwrite: bool = False,
 ) -> Path:
 
-    output_path = RAW_DATA_DIR / filename
+    output_path = RAW_DATA_DIR / str(filename + ".zip")
+    output_path_nc = RAW_DATA_DIR / str(filename + ".nc")
+    output_path_grb = RAW_DATA_DIR / str(filename + ".grb")
 
-    if output_path.exists() and not overwrite:
-        print(f"File {output_path} already exists")
+    if output_path_nc.exists() or output_path_grb.exists() and not overwrite:
+        print(f"File {filename} already exists")
         return output_path
 
     client = cdsapi.Client()
