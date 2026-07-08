@@ -102,7 +102,9 @@ def detect_header_and_metadata(file):
 
             line = line.strip()
 
-            if line.startswith("DATA;"):
+            upper_line = line.upper()
+
+            if upper_line.startswith("DATA") and "HORA" in upper_line:
                 return i, metadata
 
             if ":;" in line:
@@ -137,9 +139,26 @@ def normalize_columns(df):
     rename_map = {
         "PRECIPITACAO_TOTAL": "PRECIPITACAO_TOTAL",
         "PRECIPITACAO_TOTAL_HORARIO_MM": "PRECIPITACAO_TOTAL",
+        "PRECIPITACAO_TOTAL_HORARIO_": "PRECIPITACAO_TOTAL",
+        "PRESSAO_ATMOSFERICA_AO_NIVEL_DA_ESTACAO_HORARIA_": "PRESSAO",
+        "PRESSAO_ATMOSFERICA_MAX.NA_HORA_ANT.__": "PRESSAO_MAX",
+        "PRESSAO_ATMOSFERICA_MIN._NA_HORA_ANT.__": "PRESSAO_MIN",
+        "RADIACAO_GLOBAL_": "RADIACAO",
+        "TEMPERATURA_DO_AR_-_BULBO_SECO_HORARIA_": "TEMPERATURA",
+        "TEMPERATURA_DO_PONTO_DE_ORVALHO_": "PONTO_ORVALHO",
+        "TEMPERATURA_MAXIMA_NA_HORA_ANT.__": "TEMPERATURA_MAXIMA",
+        "TEMPERATURA_MINIMA_NA_HORA_ANT.__": "TEMPERATURA_MIN",
+        "TEMPERATURA_ORVALHO_MAX._NA_HORA_ANT.__": "PONTO_ORVALHO_MAX",
+        "TEMPERATURA_ORVALHO_MIN._NA_HORA_ANT.__": "PONTO_ORVALHO_MIN",
+        "UMIDADE_REL._MAX._NA_HORA_ANT.__": "UMIDADE_MAX",
+        "UMIDADE_REL._MIN._NA_HORA_ANT.__": "UMIDADE_MIN",
+        "UMIDADE_RELATIVA_DO_AR_HORARIA_": "UMIDADE",
         "VENTO_DIRECAO": "DIRECAO_VENTO",
+        "VENTO_DIRECAO_HORARIA__)": "DIRECAO_VENTO",
         "VENTO_RAJADA_MAXIMA": "RAJADA_VENTO",
+        "VENTO_RAJADA_MAXIMA_": "RAJADA_VENTO",
         "VENTO_VELOCIDADE": "VELOCIDADE_VENTO",
+        "VENTO_VELOCIDADE_HORARIA_": "VELOCIDADE_VENTO",
     }
 
     df = df.rename(columns=rename_map)
@@ -209,7 +228,9 @@ def read_data(file):
         df[hour_col]
         .astype(str)
         .str.replace(" UTC", "", regex=False)
-        .str.zfill(5)
+        .str.replace(":", "", regex=False)
+        .str.zfill(4)
+        .str.replace(r"^(\d{2})(\d{2})$", r"\1:\2", regex=True)
     )
 
     df["datetime"] = pd.to_datetime(df[date_col] + " " + df[hour_col], errors="coerce")
