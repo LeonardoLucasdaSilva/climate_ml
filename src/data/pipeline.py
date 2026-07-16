@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 import numpy as np
 import pandas as pd
 import xarray as xr
@@ -7,6 +8,31 @@ from src.data import load_interim
 from src.data.preprocess import create_sliding_windows, prepare_data_seq_to_one
 from src.data.split import temporal_train_val_test_split
 from src.config.paths import PROCESSED_DATA_DIR
+
+INMET_DAILY_FILE_REGEX = re.compile(r".*_(\d{4})_(\d{4})_daily\.csv$", re.IGNORECASE)
+
+
+def resolve_inmet_daily_csv(state_acronym: str, station_code: str) -> Path:
+    """Return the processed INMET daily file with the latest available end year."""
+
+    station_dir = PROCESSED_DATA_DIR / "inmet" / state_acronym / station_code
+    candidates = []
+
+    for path in station_dir.glob(f"{station_code}_*_daily.csv"):
+        match = INMET_DAILY_FILE_REGEX.match(path.name)
+        if not match:
+            continue
+
+        start_year = int(match.group(1))
+        end_year = int(match.group(2))
+        candidates.append((end_year, start_year, path))
+
+    if not candidates:
+        raise FileNotFoundError(
+            f"No processed INMET daily CSV found for {state_acronym}/{station_code} in `{station_dir}`."
+        )
+
+    return max(candidates)[2]
 
 
 def load_era5_timeseries(cidade: str, config: dict) -> pd.DataFrame:
@@ -63,13 +89,7 @@ def load_inmet_timeseries(cidade: str, config: dict) -> pd.DataFrame:
     state_acronym = config["experiment"]["state_acronym"]
     station_code = config["experiment"]["single_station_code"]
 
-    csv_path = (
-        PROCESSED_DATA_DIR
-        / "inmet"
-        / state_acronym
-        / station_code
-        / f"{station_code}_2000_2025_daily.csv"
-    )
+    csv_path = resolve_inmet_daily_csv(state_acronym, station_code)
 
     df = pd.read_csv(csv_path, sep=";")
     df["date"] = pd.to_datetime(df["DATA"])
@@ -261,12 +281,9 @@ def load_and_prepare_inmet(
     # -----------------------
     # LOAD FULL CSV
     # -----------------------
-    csv_path = (
-        PROCESSED_DATA_DIR /
-        "inmet" /
-        config["experiment"]["state_acronym"] /
-        config["experiment"]["single_station_code"] /
-        f"{config['experiment']['single_station_code']}_2000_2025_daily.csv"
+    csv_path = resolve_inmet_daily_csv(
+        config["experiment"]["state_acronym"],
+        config["experiment"]["single_station_code"],
     )
 
     df = pd.read_csv(csv_path, sep=";")

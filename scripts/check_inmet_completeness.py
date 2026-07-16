@@ -8,6 +8,8 @@ where the data is fully complete (no NaN and no -9999 sentinel values).
 Output is printed to stdout and also saved as a CSV summary.
 """
 
+import re
+
 import pandas as pd
 from pathlib import Path
 
@@ -21,6 +23,7 @@ INMET_DIR = PROCESSED_DATA_DIR / "inmet"
 OUTPUT_PATH = PROCESSED_DATA_DIR / "inmet_complete_intervals.csv"
 
 NO_DATA_SENTINEL = -9999
+DAILY_FILE_REGEX = re.compile(r".*_(\d{4})_(\d{4})_daily\.csv$", re.IGNORECASE)
 
 # Columns to check for completeness (all climate variables, not the date col)
 
@@ -52,8 +55,8 @@ COLUMNS_TO_CHECK = [
 
 # Control variables
 STATE_TO_CHECK = "RS"  # Change to selected state or None for all states
-START_DATE = "2020-01-01"  # Initial interval date (formato: AAAA-MM-DD)
-END_DATE = "2024-03-31"  # End interval date (formato: AAAA-MM-DD)
+START_DATE = "2000-01-01"  # Initial interval date (formato: AAAA-MM-DD)
+END_DATE = "2026-07-07"  # End interval date (formato: AAAA-MM-DD)
 
 # ---------------------------------------------------------------------------
 # Core logic
@@ -70,6 +73,10 @@ def find_complete_intervals(df: pd.DataFrame) -> list[dict]:
     """
 
     cols = [c for c in COLUMNS_TO_CHECK if c in df.columns]
+
+    if not cols:
+        return []
+
     df = df[cols].replace(NO_DATA_SENTINEL, float("nan"))
     complete_mask = df.notna().all(axis=1)
 
@@ -106,6 +113,41 @@ def load_station_csv(path: Path) -> pd.DataFrame:
     return df
 
 
+def parse_daily_file_years(path: Path):
+
+    match = DAILY_FILE_REGEX.match(path.name)
+
+    if not match:
+        return None
+
+    return int(match.group(1)), int(match.group(2))
+
+
+def collect_latest_station_files() -> list[Path]:
+
+    latest_by_station = {}
+
+    for path in INMET_DIR.rglob("*_daily.csv"):
+
+        years = parse_daily_file_years(path)
+
+        if years is None:
+            continue
+
+        key = (path.parent.parent.name, path.parent.name)
+
+        if key not in latest_by_station or years > latest_by_station[key][0]:
+            latest_by_station[key] = (years, path)
+
+    return [
+        path
+        for _, path in sorted(
+            latest_by_station.values(),
+            key=lambda item: str(item[1])
+        )
+    ]
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
@@ -115,7 +157,7 @@ def main():
     all_records = []
     fully_covered_stations = []
 
-    station_files = sorted(INMET_DIR.rglob("*_2000_2025_daily.csv"))
+    station_files = collect_latest_station_files()
 
     if not station_files:
         print(f"Nenhum arquivo de estação encontrado em {INMET_DIR}")
@@ -142,11 +184,11 @@ def main():
         intervals = find_complete_intervals(df)
 
         if not intervals:
-            print(f"  [{state}/{station}] — Nenhum intervalo completo encontrado.")
+            print(f"  [{state}/{station}] - Nenhum intervalo completo encontrado.")
         else:
-            print(f"  [{state}/{station}] — {len(intervals)} intervalo(s) completo(s):")
+            print(f"  [{state}/{station}] - {len(intervals)} intervalo(s) completo(s):")
             for iv in intervals:
-                print(f"      {iv['start'].date()} → {iv['end'].date()}  ({iv['n_days']} dias)")
+                print(f"      {iv['start'].date()} -> {iv['end'].date()}  ({iv['n_days']} dias)")
 
         for iv in intervals:
             all_records.append({
@@ -168,6 +210,8 @@ def main():
         summary.to_csv(OUTPUT_PATH, index=False)
         print(f"Resumo salvo em: {OUTPUT_PATH}")
     else:
+        summary = pd.DataFrame(columns=["state", "station", "start", "end", "n_days"])
+        summary.to_csv(OUTPUT_PATH, index=False)
         print("Nenhum intervalo completo encontrado em nenhuma estação.")
 
     # Imprime as estações que cobrem completamente o intervalo

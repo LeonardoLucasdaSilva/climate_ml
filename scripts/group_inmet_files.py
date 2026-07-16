@@ -1,14 +1,19 @@
 import re
+import argparse
+import sys
+import numpy as np
 import pandas as pd
 from pathlib import Path
 from multiprocessing import Pool, cpu_count
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from src.config.paths import INTERIM_DATA_DIR, PROCESSED_DATA_DIR
 
 RAW_DIR = INTERIM_DATA_DIR / "inmet"
 PROCESSED_DIR = PROCESSED_DATA_DIR / "inmet"
-
-START_YEAR = 2000
-END_YEAR = 2025
 
 file_regex = re.compile(
     r"INMET_.*?_([A-Z]{2})_([A-Z0-9]+)_.*?_(\d{2}-\d{2}-\d{4})_A_(\d{2}-\d{2}-\d{4})",
@@ -39,6 +44,13 @@ TARGET_COLUMNS = [
     "VELOCIDADE_VENTO",
 ]
 
+DAILY_TARGET_COLUMNS = [
+    column for column in TARGET_COLUMNS if column != "DIRECAO_VENTO"
+] + [
+    "DIRECAO_VENTO_SIN",
+    "DIRECAO_VENTO_COS",
+]
+
 # --------------------------------------------
 # FILE PARSING
 # --------------------------------------------
@@ -62,11 +74,13 @@ def parse_filename(path):
 # COLLECT FILES
 # --------------------------------------------
 
-def collect_files():
+def collect_files(state_filter=None, station_filter=None):
 
     stations = {}
 
-    for file in RAW_DIR.rglob("*.csv"):
+    source_files = set(RAW_DIR.rglob("*.csv")) | set(RAW_DIR.rglob("*.CSV"))
+
+    for file in source_files:
 
         parsed = parse_filename(file)
 
@@ -74,6 +88,12 @@ def collect_files():
             continue
 
         state, station, start, end = parsed
+
+        if state_filter and state.upper() != state_filter.upper():
+            continue
+
+        if station_filter and station.upper() != station_filter.upper():
+            continue
 
         stations.setdefault((state, station), []).append(
             {
@@ -86,6 +106,21 @@ def collect_files():
 
     print("Stations detected:", len(stations))
     return stations
+
+
+def infer_year_range(stations):
+
+    years = [
+        year
+        for files in stations.values()
+        for f in files
+        for year in (f["start"].year, f["end"].year)
+    ]
+
+    if not years:
+        raise RuntimeError("No INMET source files found to infer year range.")
+
+    return min(years), max(years)
 
 
 # --------------------------------------------
@@ -170,14 +205,32 @@ def normalize_columns(df):
 # ENFORCE DATASET SCHEMA
 # --------------------------------------------
 
-def enforce_schema(df):
+def enforce_schema(df, columns=TARGET_COLUMNS):
 
-    for col in TARGET_COLUMNS:
+    for col in columns:
         if col not in df.columns:
             df[col] = -9999
 
-    df = df[TARGET_COLUMNS]
+    df = df[columns]
 
+    return df
+
+
+# --------------------------------------------
+# CIRCULAR STATISTICS
+# --------------------------------------------
+
+def add_wind_direction_components(df):
+    """Add sine/cosine components for valid wind directions in degrees."""
+
+    directions = pd.to_numeric(df["DIRECAO_VENTO"], errors="coerce")
+    directions = directions.where(directions.between(0, 360, inclusive="both"))
+    directions = directions.replace(-9999, np.nan)
+    radians = np.deg2rad(directions % 360)
+
+    df = df.copy()
+    df["DIRECAO_VENTO_SIN"] = np.sin(radians)
+    df["DIRECAO_VENTO_COS"] = np.cos(radians)
     return df
 
 
@@ -285,17 +338,19 @@ def deduplicate_files(files):
 
 def process_station(args):
 
-    state, station, files = args
+    state, station, files, start_year, end_year = args
 
     print("Processing", state, station)
 
     files = deduplicate_files(files)
-    files = sorted(files, key=lambda x: x["start"])
+    files = sorted(files, key=lambda x: (x["start"], x["end"], x["size"]))
+    station_start = min(f["start"] for f in files)
+    station_end = max(f["end"] for f in files)
 
     out_dir = PROCESSED_DIR / state / station
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    dataset_path = out_dir / f"{station}_2000_2025_daily.csv"
+    dataset_path = out_dir / f"{station}_{start_year}_{end_year}_daily.csv"
 
     first_write = True
     metadata_records = []
@@ -316,12 +371,13 @@ def process_station(args):
         "UMIDADE": "mean",
         "UMIDADE_MAX": "max",
         "UMIDADE_MIN": "min",
-        "DIRECAO_VENTO": "mean",
+        "DIRECAO_VENTO_SIN": "mean",
+        "DIRECAO_VENTO_COS": "mean",
         "RAJADA_VENTO": "max",
         "VELOCIDADE_VENTO": "mean",
     }
 
-    for year in range(START_YEAR, END_YEAR + 1):
+    for year in range(start_year, end_year + 1):
 
         dfs = []
 
@@ -351,24 +407,34 @@ def process_station(args):
         if dfs:
 
             data = pd.concat(dfs)
-            data = data[~data.index.duplicated(keep="first")]
+            data = data.sort_index()
+            data = data[~data.index.duplicated(keep="last")]
+            data = add_wind_direction_components(data)
 
             data_daily = data.resample("D").agg(AGG_RULES)
 
         else:
 
-            data_daily = pd.DataFrame(columns=TARGET_COLUMNS)
+            data_daily = pd.DataFrame(columns=DAILY_TARGET_COLUMNS)
 
-        # Ensure full daily index
+        # Ensure a daily index only for the period covered by the source files.
+        # This avoids padding partial current-year files, such as Jan-Jun 2026,
+        # with artificial missing days through Dec 31.
+        daily_start = max(pd.Timestamp(f"{year}-01-01"), station_start)
+        daily_end = min(pd.Timestamp(f"{year}-12-31"), station_end)
+
+        if daily_start > daily_end:
+            continue
+
         daily_index = pd.date_range(
-            f"{year}-01-01",
-            f"{year}-12-31",
+            daily_start,
+            daily_end,
             freq="D"
         )
 
         data_daily = data_daily.reindex(daily_index)
 
-        data_daily = enforce_schema(data_daily)
+        data_daily = enforce_schema(data_daily, DAILY_TARGET_COLUMNS)
 
         # Keep only DATE column
         data_daily.insert(0, "DATA", data_daily.index.strftime("%Y-%m-%d"))
@@ -400,15 +466,64 @@ def process_station(args):
 # MAIN
 # --------------------------------------------
 
+def parse_args():
+
+    parser = argparse.ArgumentParser(
+        description="Group standardized INMET hourly station CSV files into daily files."
+    )
+    parser.add_argument(
+        "--workers",
+        type=int,
+        default=1,
+        help=(
+            "Number of stations to process in parallel. Default is 1 to avoid "
+            "large pandas memory spikes on the full INMET dataset."
+        ),
+    )
+    parser.add_argument(
+        "--state",
+        help="Optional UF filter, for example RS or SP.",
+    )
+    parser.add_argument(
+        "--station",
+        help="Optional station code filter, for example A804.",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Only report detected stations and year range; do not write outputs.",
+    )
+    return parser.parse_args()
+
+
 def main():
 
-    stations = collect_files()
+    args = parse_args()
 
-    tasks = [(state, station, files) for (state, station), files in stations.items()]
+    stations = collect_files(args.state, args.station)
 
-    workers = max(cpu_count() - 2, 1)
+    start_year, end_year = infer_year_range(stations)
+    print(f"Year range detected: {start_year}-{end_year}")
+    print(f"Stations to process: {len(stations)}")
 
-    with Pool(workers) as pool:
+    tasks = [
+        (state, station, files, start_year, end_year)
+        for (state, station), files in stations.items()
+    ]
+
+    if args.dry_run:
+        return
+
+    max_workers = max(cpu_count() - 2, 1)
+    workers = max(1, min(args.workers, max_workers, len(tasks)))
+    print(f"Workers: {workers}")
+
+    if workers == 1:
+        for task in tasks:
+            process_station(task)
+        return
+
+    with Pool(workers, maxtasksperchild=1) as pool:
         pool.map(process_station, tasks)
 
 
